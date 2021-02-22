@@ -1,0 +1,29 @@
+{% extends 'materials/base.html' %}
+
+{% block body %}
+  {% load static %}
+  <section class="jumbotron">
+    {% if user.is_authenticated %}
+      <h2 class="text-center">Welcome, {{user.first_name}}, to the {{ matd3_name }} materials database</h2>
+    {% else %}
+      <h2 class="text-center">Welcome to the {{ matd3_name }} materials database</h2>
+    {% endif %}
+    <div class="text-justify">
+      <p>
+        The {{ matd3_name }} materials database provides a comprehensive collection of experimental and computational curated materials data.
+      </p>
+      <p>
+        The data is available under the Creative Commons license with attribution clause, described <a href="https://creativecommons.org/licenses/by/4.0/">here</a> and, in its full text, <a href="https://creativecommons.org/licenses/by/4.0/legalcode">here</a>. We also intend to offer the data for inclusion in broader materials databases in order to maximize its accessibility.
+      </p>
+      <p>
+        Please contact us if you wish to add specific materials to the database - the database is intended to be accessible by the community and we would be delighted to hear from you.
+      </p>
+    </div>
+    <a href="{% url 'contact' %}">
+      <button type="buttom" class="btn btn-primary">Learn more</button>
+    </a>
+    <a href="{% url 'materials:search' %}">
+      <button type="button" class="btn btn-primary">Start searching</button>
+    </a>
+  </section>
+{% endblock %}

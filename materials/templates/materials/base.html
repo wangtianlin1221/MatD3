@@ -1,0 +1,64 @@
+{% extends 'mainproject/base.html' %}
+
+{% block navbar %}
+  <nav class="navbar navbar-expand-md">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="{% url 'index' %}">{{ matd3_name }} database</a>
+      <button class="navbar-toggler custom-toggler" type="button" data-toggle="collapse"
+              data-target="#collapsibleNavbar">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="collapsibleNavbar">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'index' %}">Home</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'materials:search' %}">Search</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="https://hybrid3.duke.edu/">HybriD<sup>3</sup> project</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/contributors">Contributors</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="https://hybrid3-database.readthedocs.io/en/latest/">
+              Software behind the database
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{% url 'contact' %}">Contact</a>
+          </li>
+        </ul>
+        <ul class="navbar-nav ml-auto">
+          {% if user.is_authenticated %}
+            {% if user.is_staff %}
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'materials:add_data' %}">Add Data</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'materials:import_data' %}">Import data</a>
+              </li>
+            {% endif %}
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'accounts:profile' %}">Profile</a>
+            </li>
+            <ul class="navbar-nav ml-auto">
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'accounts:logout'%}">Logout</a>
+              </li>
+            </ul>
+          {% else %}
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'accounts:login' %}">Login</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="{% url 'accounts:register' %}">Register</a>
+            </li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </nav>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% if systems.count > 0 %}
+  {% if physical_properties %}
+    <ul>
+      {% for prop in physical_properties %}
+        <li>{{ prop }}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  <table class="table table-hover table-sm">
+    <thead>
+      <tr>
+        <th>Compound Name</th>
+        <th>Chemical Formula</th>
+        <th>Alternate Names</th>
+        <th>Organic Component</th>
+        <th>Inorganic Component</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for system in systems %}
+        <tr>
+          <td><a href="{% url 'materials:system' pk=system.pk %}">{{ system.compound_name }}</a></td>
+          <td><a href="{% url 'materials:system' pk=system.pk %}">{{ system.formula }}</a></td>
+          <td>
+            <ul style="padding: 0px; list-style-type: none" id="authors-list">
+              {% for name in system.listAlternateNames %}
+                <li><a href="{% url 'materials:system' pk=system.pk %}">{{ name }}</a></li>
+              {% endfor %}
+            </ul>
+          </td>
+          <td>{{ system.organic }}</td>
+          <td>{{ system.inorganic }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="alert alert-warning" role="alert">No results found. Please retry with a new search term</p>
+{% endif %}

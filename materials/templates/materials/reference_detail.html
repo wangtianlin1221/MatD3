@@ -1,0 +1,49 @@
+{% extends 'materials/base.html' %}
+
+{# List all data sets corresponding to a given reference. #}
+
+{% block body %}
+  <div class="card card-default">
+    <div class="card-header">
+      <h5>{% include 'materials/reference_format.html' with ref=object %}</h5>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        {% for dataset in object.datasets.all %}
+          {% if user == dataset.created_by or dataset.visible %}
+            <div class="col-md-6">
+              <div class="card card-item">
+                {% if not dataset.visible %}
+                  <div style="background:#fadb9b">
+                {% endif %}
+                <div class="card-header">
+                  <h5><a href="{% url 'materials:system' pk=dataset.system.pk %}">
+                    {{ dataset.system.compound_name }}</a>: {{ dataset.primary_property }}
+                    {% if dataset.verified_by.exists %}
+                      <span class="badge badge-success">Verified</span>
+                    {% endif %}
+                  </h5>
+                  {% if user == dataset.created_by %}
+                    {% include 'materials/dataset_buttons.html' with system=dataset.system %}
+                  {% endif %}
+                </div>
+                {% if not dataset.visible %}
+                  </div>
+                {% endif %}
+                <div class="card-body">
+                  {% include 'materials/dataset_contents.html' with with_all_entries=True %}
+                </div>
+              </div>
+              <br>
+            </div>
+          {% endif %}
+        {% endfor %}
+        {% include "materials/license_note.html" %}
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block script %}
+  {% include 'materials/dataset_scripts.html' with datasets=object.datasets.all %}
+{% endblock %}

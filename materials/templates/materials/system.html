@@ -1,0 +1,102 @@
+{% extends 'materials/base.html' %}
+
+{% comment %}
+List of data sets for a specific material. Only the representative
+data sets corresponding to each property are shown.
+{% endcomment %}
+
+{% block body %}
+  {% load static %}
+  <div class="card card-default">
+    <div class="card-header">
+      {% if user.is_superuser and dataset_list.first %}
+        <a href="/admin/materials/system/{{ dataset_list.first.system.pk }}/change/">
+          <button type="button" class="btn btn-success" style="float: right">
+            Edit System Data
+          </button>
+        </a>
+      {% endif %}
+      <h3>{{ dataset_list.first.system.compound_name }}</h3>
+    </div>
+
+    <div class="card-body">
+      <div class="row">
+
+        {% for dataset in dataset_list %}
+          {% if dataset.representative %}
+            {% if user == dataset.created_by or dataset.visible %}
+              {% comment %}
+              In case of atomic structures use a wider column to make
+              room for the JSmol visualization below
+              {% endcomment %}
+              <div class="col-md-{% if dataset.primary_property.name == 'atomic structure'%}12{% else %}6{% endif %}">
+                <div class="card card-item">
+                  {% if not dataset.visible %}
+                    <div style="background:#fadb9b">
+                  {% endif %}
+                  <div class="card-header">
+                    <h5>
+                      {{ dataset.primary_property.name|capfirst }}
+                      {% if dataset.verified_by.exists %}
+                        <span class="badge badge-success">Verified</span>
+                      {% endif %}
+                    </h5>
+                    {% if user == dataset.created_by %}
+                      {% include 'materials/dataset_buttons.html' with system=dataset_list.first.system %}
+                    {% endif %}
+                  </div>
+                  {% if not dataset.visible %}
+                    </div>
+                  {% endif %}
+                  <div class="card-body">
+                    {% if dataset.primary_property.name == 'atomic structure'%}
+                    <div class="row">
+                      <div class="col-md-6">
+                        {% include 'materials/dataset_contents.html' with with_reference=True with_all_entries=True skip_atomic_structure=True %}
+                      </div>
+                      <div class="col-md-6">
+                        {% include 'materials/jsmol_card.html' %}
+                      </div>
+                    </div>
+                    {% else %}
+                    {% include 'materials/dataset_contents.html' with with_reference=True with_all_entries=True %}
+                    {% endif %}
+                  </div>
+                </div>
+                <br>
+              </div>
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+
+        {% include "materials/license_note.html" %}
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block script %}
+  <script src="{% static 'jsmol/JSmol.min.js' %}"></script>
+  <script>
+   {% for dataset in dataset_list %}
+   {% if dataset.representative and dataset.primary_property.name == 'atomic structure' %}
+   {% if user == dataset.created_by or dataset.visible %}
+   $.get("{% url 'materials:get_jsmol_input' pk=dataset.pk %}", function(response) {
+     if (response) {
+       $('#jmol').html(Jmol.getAppletHtml('jmol', {
+         script: response,
+         j2sPath: "{% static 'jsmol/j2s' %}",
+         height: 450,
+         width: 470,
+       }));
+     } else {
+       var el = document.getElementById('jmol');
+       el.innerHTML = 'Atomic coordinates not available for this data set.';
+     }
+   });
+   {% endif %}
+   {% endif %}
+   {% endfor %}
+  </script>
+  {% include 'materials/dataset_scripts.html' with datasets=dataset_list %}
+{% endblock %}

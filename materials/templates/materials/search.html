@@ -1,0 +1,120 @@
+{% extends 'materials/base.html' %}
+
+{% block body %}
+  <br>
+  <div class="card card-default">
+    <div class="card-header">
+      <h5>Search for Materials</h5>
+    </div>
+    <div class="card-body">
+      <form id="search-system" method="post">
+        {% csrf_token %}
+        <div class="form-group">
+          <label for="search_text">Search term: </label>
+          <div class="input-group">
+            <div class="input-group-prepend">
+              <select id="search_term" name="search_term" class="selectpicker">
+                {% for search_term in search_terms %}
+                  <option value="{{ search_term.0 }}">{{ search_term.1 }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <input id="search_text" class="form-control" type="text" name="search_text" required>
+            <div class="input-group-append">
+              <button type="submit" class="btn btn-primary">Submit</button>
+            </div>
+          </div>
+        </div>
+      </form>
+      <div class="alert alert-info" id="explanatory_text">
+        Search for all or part of a chemical formula, e.g. CH3NH3PbI3 or MAPbI3
+      </div>
+      <div class="input-group">
+        <div class="input-group-prepend">
+          <span id="material_id_label" class="input-group-text">Material ID</span>
+        </div>
+        <select id='material_ids' name='material_ids' class="form-control">
+          {% for material in material_ids %}
+            <option value="{{ material.0 }}">{{ material.0 }} - {{ material.1 }}</option>
+          {% endfor %}
+        </select>
+        <div class="input-group-append">
+          <button id="material_id_submit" class="btn btn-primary">Submit</button>
+        </div>
+      </div>
+      <div class="input-group">
+        <div class="input-group-prepend">
+          <span id="dataset_id_label" class="input-group-text">Data set ID</span>
+        </div>
+        <select id='dataset_ids' name='dataset_ids' class="form-control">
+          {% for dataset in dataset_ids %}
+            <option value="{{ dataset.0 }}">{{ dataset.0 }} - {{ dataset.1 }}, {{ dataset.2 }}</option>
+          {% endfor %}
+        </select>
+        <div class="input-group-append">
+          <button id="dataset_id_submit" class="btn btn-primary">Submit</button>
+        </div>
+      </div>
+      <ul id="results" class="list-group">
+      </ul>
+    </div>
+  </div>
+{% endblock %}
+
+{% block script %}
+  <script>
+   $('#search_text').attr('placeholder', 'Search for all or part of a chemical formula, e.g. CH3NH3PbI3 or MAPbI3');
+   $('#search_term').change(function() {
+     if (this.value == 'exciton_emission') {
+       text = 'Search by range using >, >=, <, <=, or a combination, e.g. >=400';
+       $('#search_text').attr('placeholder', text);
+       $('#explanatory_text').text(text);
+     } else if (this.value == 'formula') {
+       text = 'Search for all or part of a chemical formula, e.g. CH3NH3PbI3 or MAPbI3';
+       $('#search_text').attr('placeholder', text);
+       $('#explanatory_text').text(text);
+     } else if (this.value == 'physical_property') {
+       text = 'Search by physical property, e.g. "band gap"';
+       $('#search_text').attr('placeholder', text);
+       $('#explanatory_text').text(text);
+     } else if (this.value == 'organic') {
+       text = 'Search for all or part of an organic component, e.g. CH3NH3';
+       $('#explanatory_text').text(text);
+       $('#search_text').attr('placeholder', text);
+     } else if (this.value == 'inorganic') {
+       text = 'Search for all or part of an inorganic component, e.g. PbI3';
+       $('#search_text').attr('placeholder', text);
+       $('#explanatory_text').text(text);
+     } else if (this.value == 'author') {
+       text = "Search by author's name";
+       $('#search_text').attr('placeholder', text);
+       $('#explanatory_text').text(text);
+     } else {
+       text = '';
+       $('#search_text').attr('placeholder', text);
+       $('#explanatory_text').text(text);
+     }
+   });
+   let search_system = document.getElementById('search-system');
+   search_system.addEventListener('submit', function(event) {
+     event.preventDefault();
+     const form_data = new FormData(this);
+     axios.post('{% url 'materials:search' %}', form_data)
+          .then(response => {
+            document.getElementById('results').innerHTML = response['data'];
+          });
+   });
+  </script>
+  <script>
+   const label_width = document.getElementById('search_term').offsetWidth;
+   document.getElementById('material_id_label').style.width = `${label_width}px`;
+   document.getElementById('dataset_id_label').style.width = `${label_width}px`;
+   document.getElementById('material_id_submit').addEventListener('click', () => {
+     window.location.href = document.getElementById('material_ids').value;
+   });
+   document.getElementById('dataset_id_submit').addEventListener('click', () => {
+     window.location.href = `dataset/${document.getElementById('dataset_ids').value}`;
+   });
+  </script>
+
+{% endblock %}
