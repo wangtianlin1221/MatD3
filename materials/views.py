@@ -47,7 +47,6 @@ from . import utils
 
 logger = logging.getLogger(__name__)
 
-
 def dataset_author_check(view):
     """Test whether the logged on user is the creator of the data set."""
     @login_required

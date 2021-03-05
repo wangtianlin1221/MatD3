@@ -409,10 +409,10 @@ class AddDataForm(forms.Form):
         required=False, widget=forms.HiddenInput())
     crystal_system = forms.ChoiceField(
         required=False,
-        initial=models.Subset.CRYSTAL_SYSTEMS[0],
+#        initial=models.Subset.CRYSTAL_SYSTEMS[0],
         choices=(models.Subset.CRYSTAL_SYSTEMS),
-        widget=forms.RadioSelect(),
-        help_text='Select the crystal system.')
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        help_text='Select the crystal system.')   
     subset_label = AutoCharField(
         label='Label',
         model=models.Subset, field='label',
@@ -491,7 +491,7 @@ class AddDataForm(forms.Form):
         required=False,
         initial=models.Subset.CRYSTAL_SYSTEMS[0],
         choices=(models.Subset.CRYSTAL_SYSTEMS),
-        widget=forms.RadioSelect(),
+        widget=forms.Select(),
         help_text='Select the final crystal system.')
     phase_transition_space_group_initial = forms.CharField(
         label='Initial space group',
@@ -562,7 +562,7 @@ class AddDataForm(forms.Form):
                     self.fields[key] = forms.ChoiceField(
                         initial=value,
                         choices=(models.Subset.CRYSTAL_SYSTEMS),
-                        widget=forms.RadioSelect())
+                        widget=forms.Select())
                 elif key.startswith('fixed_property_'):
                     self.fields[key] = forms.ModelChoiceField(
                         queryset=models.Property.objects.all(), initial=value)
@@ -588,7 +588,7 @@ class AddDataForm(forms.Form):
                         required=False,
                         initial=value,
                         choices=(models.Subset.CRYSTAL_SYSTEMS),
-                        widget=forms.RadioSelect())
+                        widget=forms.Select())
                 elif key.startswith('phase_transition_space_group_initial_'):
                     self.fields[key] = forms.CharField(required=False,
                                                        initial=value)

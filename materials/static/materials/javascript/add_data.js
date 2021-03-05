@@ -251,6 +251,27 @@ document
     }
   });
 
+// Additional file uploader
+$.fn.output_uploaded_file = function(filesToUpload) {
+  this.closest(".uploaded-files").change(function (evt) {
+
+        for (var i = 0; i < evt.target.files.length; i++) {
+            filesToUpload.push(evt.target.files[i]);
+        };
+        var output = [];
+
+        for (var i = 0, f; f = evt.target.files[i]; i++) {
+            var removeLink = "<a class=\"removeFile\" href=\"#\" data-fileid=\"" + i + "\">Remove</a>";
+
+            output.push("<li><strong>", escape(f.name), "</strong> - ",
+                f.size, " bytes. &nbsp; &nbsp; ", removeLink, "</li> ");
+        }
+
+        $(this).children(".fileList")
+            .append(output.join(""));
+    });
+}
+
 // Create a new data subset
 let counter_fixed = 0;
 const add_subset = i_subset => {
@@ -260,7 +281,7 @@ const add_subset = i_subset => {
   copy.classList.remove('d-none', 'data-subset-template');
   copy.getElementsByClassName('card-header')[0].innerHTML =
     'Subset #' + i_subset;
-  for (let element of copy.querySelectorAll('input, textarea')) {
+  for (let element of copy.querySelectorAll('input, textarea, select')) {
     // Set the defaults of radio buttons from the first subset
     if (i_subset > 1 && element.type === 'radio') {
       const el = document.getElementById(element.id + '_' + 1);
@@ -291,6 +312,26 @@ const add_subset = i_subset => {
       import_lattice_parameters(this);
     });
   document.getElementById('data-subset').append(copy);
+  // Upload additional file
+  var filesToUpload = [];
+  $(`#id_uploaded_files_${i_subset}`).output_uploaded_file(filesToUpload);
+  // Delete specific uploaded file
+  $(document).on("click",".removeFile", function(e){
+    e.preventDefault();
+    var fileName = $(this).parent().children("strong").text();
+     // loop through the files array and check if the name of that file matches FileName
+    // and get the index of the match
+    for(var i = 0; i < filesToUpload.length; ++ i){
+        if(filesToUpload[i].name == fileName){
+            console.log("match at: " + i);
+            // remove the one element at the index where we get a match
+            filesToUpload.splice(i, 1);
+        } 
+    }
+    console.log(filesToUpload);
+    // remove the <li> element of the removed file from the page DOM
+    $(this).parent().remove();
+  });
 }
 
 // Create a new set of fixed property fields
@@ -349,10 +390,11 @@ number_of_subsets.addEventListener('change', function() {
       data_subset.lastChild.remove();
     }
   }
+  /*
   if (data_subset.hasChildNodes()) {
     data_subset.firstChild.getElementsByClassName('subset-label-class')[0]
                .disabled = n_subset_requested == 1;
-  }
+  } */
   document.getElementById('import-all-data').disabled = n_subset_requested == 0;
 });
 number_of_subsets.dispatchEvent(new Event('change'));

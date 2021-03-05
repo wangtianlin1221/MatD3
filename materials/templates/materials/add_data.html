@@ -411,21 +411,14 @@
         <div class="row">
           <div class="col-md-8">
             <div class="form-row">
-              <div class="form-group col-md-12">
-                {% input_field main_form.crystal_system %}
+              <div class="form-group col-md-8">
+                {{ main_form.crystal_system.label_tag }}
+                {{ main_form.crystal_system.help_text|tooltip }}
+                {{ main_form.crystal_system }}
                 <div class="phase-transition-input" hidden="true">
-                  {% input_field main_form.phase_transition_crystal_system_final %}
-                </div>
-              </div>
-              <div class="col-md-7">
-                <div class="input-group">
-                  <div class="input-group-prepend">
-                    <span class="input-group-text">{{ main_form.subset_label.label }}</span>
-                  </div>
-                  {{ main_form.subset_label }}
-                  <i class="fa fa-question-circle fa-2x tooltip-container ml-2 mt-1">
-                    <span class="tooltiptext">{{ main_form.subset_label.help_text }}</span>
-                  </i>
+                  {{ main_form.phase_transition_crystal_system_final.label_tag }}
+                  {{ main_form.phase_transition_crystal_system_final.help_text|tooltip }}
+                  {{ main_form.phase_transition_crystal_system_final }}
                 </div>
               </div>
               <div class="col-md-5">
@@ -499,6 +492,11 @@
                 </div>
               </div>
             </div>
+            <br>
+            <div class="uploaded-files">
+              {% input_field main_form.uploaded_files %}
+              <ul class="fileList"></ul>
+            </div>
           </div>
         </div>
       </div>
@@ -508,15 +506,15 @@
 
   <!-- fixed property template -->
   <div class="form-row fixed-property-template d-none">
-    <div class="col-md-4 mb-3">
+    <div class="col-md-3 mb-3">
       <label for="fixed_property">Property</label>
-      <select id="fixed_property" name="fixed_property" placeholder="--select or add new--"></select>
+      <select id="fixed_property" name="fixed_property" placeholder="--select or add--"></select>
     </div>
-    <div class="col-md-4 mb-3">
+    <div class="col-md-3 mb-3">
       <label for="fixed_unit">Unit</label>
-      <select id="fixed_unit" name="fixed_unit" placeholder="--select or add new--"></select>
+      <select id="fixed_unit" name="fixed_unit" placeholder="--select or add--"></select>
     </div>
-    <div class="col-md-4 mb-3">
+    <div class="col-md-3 mb-3">
       <label for="fixed_value">Fixed value</label>
       <div class="input-group">
         <input class="form-control" name="fixed_value" type="text" maxlength="50" required>
