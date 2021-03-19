@@ -38,6 +38,23 @@ class Base(models.Model):
         return f'ID: {self.pk}'
 
 
+class Compound(Base):
+    """Primary information about compound."""
+    # compound_name = models.CharField(max_length=1000)
+    formula = models.CharField(max_length=200)
+    # group = models.CharField(max_length=100, blank=True)  # aka Alternate names
+    # organic = models.CharField(max_length=100, blank=True)
+    # inorganic = models.CharField(max_length=100, blank=True)
+    # last_update = models.DateField(auto_now=True)
+    # description = models.TextField(max_length=1000, blank=True)
+    # tags = models.ManyToManyField(Tag, blank=True)
+
+    def __str__(self):
+        return self.formula
+
+    # def listAlternateNames(self):
+    #     return self.group.replace(',', ' ').split()
+
 class Property(Base):
     name = models.CharField(max_length=100, unique=True)
 
@@ -99,38 +116,10 @@ class Author(models.Model):
         return self.first_name.split()
 
 
-class Tag(models.Model):
-    tag = models.CharField(max_length=100)
-
-    def __str__(self):
-        return self.tag
-
-
-class System(models.Model):
-    """Primary information about the physical system."""
-    compound_name = models.CharField(max_length=1000)
-    formula = models.CharField(max_length=200)
-    group = models.CharField(max_length=100, blank=True)  # aka Alternate names
-    organic = models.CharField(max_length=100, blank=True)
-    inorganic = models.CharField(max_length=100, blank=True)
-    last_update = models.DateField(auto_now=True)
-    description = models.TextField(max_length=1000, blank=True)
-    tags = models.ManyToManyField(Tag, blank=True)
-
-    def __str__(self):
-        return self.compound_name
-
-    def listAlternateNames(self):
-        return self.group.replace(',', ' ').split()
-
-
 class Dataset(Base):
-    """Class for mainly tables and figures.
-
-    It doesn't have to be limited to tables and figures though. A data
-    set is a self-contained collection of any data.
-
+    """A dataset represents data per property per compound.
     """
+    # Define sample type choices
     SINGLE_CRYSTAL = 0
     POWDER = 1
     FILM = 2
@@ -147,52 +136,46 @@ class Dataset(Base):
         (NANOFORM, 'nanoform'),
         (UNKNOWN, 'unknown'),
     )
-    DIMENSIONALITIES = (
-        (3, 3),
-        (2, 2),
-        (1, 1),
-        (0, 0),
+    # Define crystal system choices
+    TRICLINIC = 0
+    MONOCLINIC = 1
+    ORTHORHOMBIC = 2
+    TETRAGONAL = 3
+    TRIGONAL = 4
+    HEXAGONAL = 5
+    CUBIC = 6
+    UNKNOWN_SYSTEM = 7
+    CRYSTAL_SYSTEMS = (
+        (TRICLINIC, 'triclinic'),
+        (MONOCLINIC, 'monoclinic'),
+        (ORTHORHOMBIC, 'orthorhombic'),
+        (TETRAGONAL, 'tetragonal'),
+        (TRIGONAL, 'trigonal'),
+        (HEXAGONAL, 'hexagonal'),
+        (CUBIC, 'cubic'),
+        (UNKNOWN_SYSTEM, 'unknown'),
     )
-    caption = models.TextField(blank=True, max_length=1000)
-    system = models.ForeignKey(System, on_delete=models.PROTECT)
+    compound = models.ForeignKey(Compound, related_name='datasets', on_delete=models.CASCADE)
     primary_property = models.ForeignKey(
         Property, on_delete=models.PROTECT, related_name='primary_property')
-    primary_unit = models.ForeignKey(
-        Unit, null=True, blank=True, on_delete=models.PROTECT,
-        related_name='primary_unit')
-    primary_property_label = models.TextField(blank=True, max_length=50)
-    secondary_property = models.ForeignKey(
-        Property, null=True, blank=True, on_delete=models.PROTECT,
-        related_name='secondary_property')
-    secondary_unit = models.ForeignKey(
-        Unit, null=True, blank=True, on_delete=models.PROTECT,
-        related_name='secondary_unit')
-    secondary_property_label = models.TextField(blank=True, max_length=50)
-    reference = models.ForeignKey(
-        Reference, on_delete=models.PROTECT, related_name='datasets')
-    visible = models.BooleanField()
-    is_figure = models.BooleanField()
     is_experimental = models.BooleanField()  # theoretical if false
-    dimensionality = models.PositiveSmallIntegerField(choices=DIMENSIONALITIES)
     sample_type = models.PositiveSmallIntegerField(choices=SAMPLE_TYPES)
-    extraction_method = models.CharField(max_length=300, blank=True)
-    representative = models.BooleanField(default=False)
-    linked_to = models.ManyToManyField('self', blank=True)
-    verified_by = models.ManyToManyField(get_user_model())
-    doi = models.CharField(max_length=50, blank=True)
+    crystal_system = models.PositiveSmallIntegerField(choices=CRYSTAL_SYSTEMS)
     space_group = models.CharField(max_length=20, blank=True)
+    representative = models.BooleanField(default=False)
+    verified_by = models.ManyToManyField(get_user_model())
 
     class Meta:
         verbose_name_plural = 'data sets'
 
     def __str__(self):
-        return f'ID: {self.pk} ({self.primary_property})'
+        return f'{self.compound}: {self.primary_property} (ID: {self.pk})'
 
     def save(self, *args, **kwargs):
         if self.representative:
             # Unset the representative flag of the dataset that was
             # previously representative
-            Dataset.objects.filter(system=self.system).filter(
+            Dataset.objects.filter(compound=self.compound).filter(
                 primary_property=self.primary_property).update(
                     representative=False)
         if self.pk and self.verified_by.exists():
@@ -227,20 +210,14 @@ class Dataset(Base):
 
     def delete(self, *args, **kwargs):
         """Additionally remove all files uploaded by the user."""
-        if self.files.exists():
-            shutil.rmtree(
-                os.path.dirname(self.files.first().dataset_file.path))
-        if self.input_files.exists():
-            shutil.rmtree(
-                os.path.dirname(self.input_files.first().dataset_file.path))
         if self.representative:
-            Dataset.objects.filter(system=self.system).filter(
+            Dataset.objects.filter(compound=self.compound).filter(
                 primary_property=self.primary_property).exclude(
                     pk=self.pk).update(representative=True)
         super().delete(*args, **kwargs)
 
     def num_all_entries(self):
-        return Dataset.objects.filter(system=self.system).filter(
+        return Dataset.objects.filter(compound=self.compound).filter(
             primary_property=self.primary_property).count()
 
     def get_all_fixed_temperatures(self):
@@ -261,6 +238,64 @@ class Dataset(Base):
         return ''
 
 
+class SynthesisMethod(Base):
+    dataset = models.ForeignKey(
+        Dataset, on_delete=models.CASCADE, related_name='synthesis')
+    starting_materials = models.TextField(blank=True)
+    product = models.TextField(blank=True)
+    description = models.TextField(blank=True)
+
+
+class ExperimentalDetails(Base):
+    dataset = models.ForeignKey(
+        Dataset, on_delete=models.CASCADE, related_name='experimental')
+    method = models.TextField()
+    description = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name_plural = 'experimental details'   
+
+
+class ComputationalDetails(Base):
+    dataset = models.ForeignKey(
+        Dataset, on_delete=models.CASCADE, related_name='computational')
+    code = models.TextField(blank=True)
+    level_of_theory = models.TextField(blank=True)
+    xc_functional = models.TextField(blank=True)
+    k_point_grid = models.TextField(blank=True)
+    level_of_relativity = models.TextField(blank=True)
+    basis_set_definition = models.TextField(blank=True)
+    numerical_accuracy = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name_plural = 'computational details'
+
+
+class Comment(Base):
+    synthesis_method = models.OneToOneField(
+        SynthesisMethod, null=True, on_delete=models.CASCADE)
+    computational_details = models.OneToOneField(
+        ComputationalDetails, null=True, on_delete=models.CASCADE)
+    experimental_details = models.OneToOneField(
+        ExperimentalDetails, null=True, on_delete=models.CASCADE)
+    text = models.TextField()
+
+    def __str__(self):
+        return self.text
+
+
+class ExternalRepository(Base):
+    computational_details = models.ForeignKey(ComputationalDetails,
+                                              on_delete=models.CASCADE,
+                                              related_name='repositories')
+    url = models.TextField(blank=True)
+
+
+def data_file_path(instance, filename):
+    return os.path.join(
+        'data_files', f'dataset_{instance.dataset.pk}_subset_{instance.title}', filename)
+
+
 class Subset(Base):
     """Subset of data.
 
@@ -269,34 +304,29 @@ class Subset(Base):
     curves in a figure).
 
     """
-    TRICLINIC = 0
-    MONOCLINIC = 1
-    ORTHORHOMBIC = 2
-    TETRAGONAL = 3
-    TRIGONAL = 4
-    HEXAGONAL = 5
-    CUBIC = 6
-    UNKNOWN_SYSTEM = 7
-    CRYSTAL_SYSTEMS = (
-        (TRICLINIC, 'triclinic'),
-        (MONOCLINIC, 'monoclinic'),
-        (ORTHORHOMBIC, 'orthorhombic'),
-        (TETRAGONAL, 'tetragonal'),
-        (TRIGONAL, 'trigonal'),
-        (HEXAGONAL, 'hexagonal'),
-        (CUBIC, 'cubic'),
-        (UNKNOWN_SYSTEM, 'unknown'),
-    )
-    label = models.CharField(max_length=100, blank=True)
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE,
                                 related_name='subsets')
-    crystal_system = models.PositiveSmallIntegerField(choices=CRYSTAL_SYSTEMS)
+    title = models.CharField(max_length=100)
+    input_data_file = models.FileField(upload_to=data_file_path, null=True)
+    reference = models.ForeignKey(
+        Reference, on_delete=models.PROTECT, related_name='subsets', null=True)
+    # crystal_system = models.PositiveSmallIntegerField(choices=CRYSTAL_SYSTEMS)
 
     class Meta:
-        verbose_name_plural = 'data subsets (read-only)'
+        verbose_name_plural = 'data subsets'
 
     def __str__(self):
-        return f'ID: {self.pk} ({self.datapoints.count()} data points)'
+        return f'ID: {self.pk} {self.title}'
+
+    def delete(self, *args, **kwargs):
+        """Additionally remove all files uploaded by the user."""
+        if self.additional_files.exists():
+            shutil.rmtree(
+                os.path.dirname(self.additional_files.first().additional_file.path))
+        # if self.input_files.exists():
+        #     shutil.rmtree(
+        #         os.path.dirname(self.input_files.first().dataset_file.path))
+        super().delete(*args, **kwargs)
 
     def get_fixed_values(self):
         """Return all fixed properties for the given subset."""
@@ -342,211 +372,218 @@ class Subset(Base):
         return False
 
 
-class Datapoint(Base):
-    """Container for the data point.
-
-    The actual data are contained in other tables such as
-    NumericalValue.
-
-    """
-    subset = models.ForeignKey(
-        Subset, on_delete=models.CASCADE, related_name='datapoints')
+def additional_file_path(instance, filename):
+    return os.path.join('uploads', f'dataset_{instance.subset.dataset.pk}_subset_{instance.subset.pk}', filename)
 
 
-class NumericalValueBase(Base):
+class AdditionalFile(Base):
+    """Additional files uploaded with the subset."""
+    subset = models.ForeignKey(Subset, on_delete=models.CASCADE,
+                                related_name='additional_files')
+    additional_file = models.FileField(upload_to=additional_file_path)
+
+
+class FixedPropertyValue(Base):
+    """Values that are constant within a data subset."""
     ACCURATE = 0
     APPROXIMATE = 1
-    LOWER_BOUND = 2
-    UPPER_BOUND = 3
+    GREATER_THAN = 2
+    GREATER_EQUAL = 3
+    LESS_THAN = 4
+    LESS_EQUAL = 5
     VALUE_TYPES = (
-        (ACCURATE, ''),
+        (ACCURATE, '='),
         (APPROXIMATE, '≈'),
-        (LOWER_BOUND, '>'),
-        (UPPER_BOUND, '<'),
+        (GREATER_THAN, '>'),
+        (GREATER_EQUAL, '≥'),
+        (LESS_THAN, '<'),
+        (LESS_EQUAL, '≤')
     )
+
+    subset = models.ForeignKey(
+        Subset, on_delete=models.CASCADE, related_name='fixed_values')
+    fixed_property = models.ForeignKey(Property, on_delete=models.PROTECT)
     value = models.FloatField()
     value_type = models.PositiveSmallIntegerField(
         default=ACCURATE, choices=VALUE_TYPES)
-    counter = models.PositiveSmallIntegerField(default=0)
-
-    class Meta:
-        abstract = True
-
-
-class NumericalValue(NumericalValueBase):
-    """Numerical value(s) associated with a data point."""
-    PRIMARY = 0
-    SECONDARY = 1
-    QUALIFIER_TYPES = (
-        (PRIMARY, 'primary'),
-        (SECONDARY, 'secondary'),
-    )
-    datapoint = models.ForeignKey(Datapoint, on_delete=models.CASCADE,
-                                  related_name='values')
-    qualifier = models.PositiveSmallIntegerField(
-        default=PRIMARY, choices=QUALIFIER_TYPES)
-
-    def formatted(self, F=''):
-        """Return the value as a formatted string.
-
-        In particular, the value type and an error, if present, are
-        attached to the value, e.g., ">12.3 (±0.4)".
-
-        """
-        value_str = f'{self.VALUE_TYPES[self.value_type][1]}{self.value:{F}}'
-        if hasattr(self, 'error'):
-            value_str += f' (±{self.error.value:{F}})'
-        if hasattr(self, 'upperbound'):
-            value_str += f'...{self.upperbound.value:{F}}'
-        return value_str
-
-
-class NumericalValueFixed(NumericalValueBase):
-    """Values that are constant within a data subset."""
-    physical_property = models.ForeignKey(Property, on_delete=models.PROTECT)
     unit = models.ForeignKey(Unit, on_delete=models.PROTECT)
-    subset = models.ForeignKey(
-        Subset, on_delete=models.CASCADE, related_name='fixed_values')
-    error = models.FloatField(null=True)
-    upper_bound = models.FloatField(null=True)
+    counter = models.PositiveSmallIntegerField(default=0)
 
     def formatted(self):
         """Same as for NumericalValue but error is now a class member."""
         value_str = f'{self.VALUE_TYPES[self.value_type][1]}{self.value}'
-        if self.error:
-            value_str += f' (±{self.error})'
-        if self.upper_bound:
-            value_str += f'...{self.upper_bound}'
+        # if self.error:
+        #     value_str += f' (±{self.error})'
+        # if self.upper_bound:
+        #     value_str += f'...{self.upper_bound}'
         return value_str
 
 
-class Symbol(Base):
-    """Data point information not storable as floats.
-
-    This includes, for example, k-point coordinates such as "X" or the
-    component of a tensor such as "c111".
-
-    """
-    datapoint = models.ForeignKey(Datapoint, on_delete=models.CASCADE,
-                                  related_name='symbols')
-    value = models.CharField(max_length=10)
-    counter = models.PositiveSmallIntegerField(default=0)
-
-
-class ComputationalDetails(Base):
-    dataset = models.ForeignKey(
-        Dataset, on_delete=models.CASCADE, related_name='computational')
-    code = models.TextField(blank=True)
-    level_of_theory = models.TextField(blank=True)
-    xc_functional = models.TextField(blank=True)
-    k_point_grid = models.TextField(blank=True)
-    level_of_relativity = models.TextField(blank=True)
-    basis_set_definition = models.TextField(blank=True)
-    numerical_accuracy = models.TextField(blank=True)
-
-    class Meta:
-        verbose_name_plural = 'computational details'
-
-
-class ExternalRepository(Base):
-    computational_details = models.ForeignKey(ComputationalDetails,
-                                              on_delete=models.CASCADE,
-                                              related_name='repositories')
-    url = models.TextField(blank=True)
-
-
-class ExperimentalDetails(Base):
-    dataset = models.ForeignKey(
-        Dataset, on_delete=models.CASCADE, related_name='experimental')
-    method = models.TextField()
-    description = models.TextField(blank=True)
-
-    class Meta:
-        verbose_name_plural = 'experimental details'
-
-
-class SynthesisMethod(Base):
-    dataset = models.ForeignKey(
-        Dataset, on_delete=models.CASCADE, related_name='synthesis')
-    starting_materials = models.TextField(blank=True)
-    product = models.TextField(blank=True)
-    description = models.TextField(blank=True)
-
-
-class Comment(Base):
-    synthesis_method = models.OneToOneField(
-        SynthesisMethod, null=True, on_delete=models.CASCADE)
-    computational_details = models.OneToOneField(
-        ComputationalDetails, null=True, on_delete=models.CASCADE)
-    experimental_details = models.OneToOneField(
-        ExperimentalDetails, null=True, on_delete=models.CASCADE)
-    text = models.TextField()
-
-    def __str__(self):
-        return self.text
-
-
-class Error(Base):
-    """Store the error (or uncertainty) of each value separately."""
-    numerical_value = models.OneToOneField(
-        NumericalValue, on_delete=models.CASCADE, primary_key=True)
-    value = models.FloatField()
-
-
-class UpperBound(Base):
-    """Store the upper bound of a range."""
-    numerical_value = models.OneToOneField(
-        NumericalValue, on_delete=models.CASCADE, primary_key=True)
-    value = models.FloatField()
-
-
-def data_file_path(instance, filename):
-    return os.path.join(
-        'data_files', f'dataset_{instance.dataset.pk}', filename)
-
-
-class InputDataFile(Base):
-    """Stores the main data of the data set."""
-    dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE,
-                                related_name='input_files')
-    dataset_file = models.FileField(upload_to=data_file_path)
-
-
-def additional_file_path(instance, filename):
-    return os.path.join('uploads', f'dataset_{instance.dataset.pk}', filename)
-
-
-class AdditionalFile(Base):
-    """Additional files uploaded with the data set."""
-    dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE,
-                                related_name='files')
-    dataset_file = models.FileField(upload_to=additional_file_path)
-
-
-class PhaseTransition(NumericalValueBase):
-    """Model for all phase transitions.
-
-    E.g., phase transition temperature or pressure. Basically,
-    includes any property that describes a change in the crystal
-    structure.
-
+class Chart(Base):
+    """General chart elements for a subset.
+    Each record represents a curve.
     """
     subset = models.ForeignKey(
-        Subset, on_delete=models.CASCADE, related_name='phase_transitions')
-    crystal_system_final = models.PositiveSmallIntegerField(
-        choices=Subset.CRYSTAL_SYSTEMS)
-    space_group_initial = models.CharField(blank=True, max_length=50)
-    space_group_final = models.CharField(blank=True, max_length=50)
-    direction = models.CharField(blank=True, max_length=50)
-    hysteresis = models.CharField(blank=True, max_length=50)
-    error = models.FloatField(null=True)
-    upper_bound = models.FloatField(null=True)
+        Subset, on_delete=models.CASCADE, related_name='lines')
+    x_title = models.CharField(max_length=100)
+    x_unit = models.CharField(max_length=20, blank=True)
+    y_title = models.CharField(max_length=100)
+    y_unit = models.CharField(max_length=20, blank=True)
+    legend = models.CharField(max_length=100, blank=True)
+    curve_counter = models.PositiveSmallIntegerField(default=0)
 
-    def formatted(self):
-        """Same as for NumericalValue but some fields are now class members."""
-        value_str = f'{self.VALUE_TYPES[self.value_type][1]}{self.value}'
-        if self.error:
-            value_str += f' (±{self.error})'
-        if self.upper_bound:
-            value_str += f'...{self.upper_bound}'
-        return value_str
+    def __str__(self):
+        return f'{self.y_title} - {self.x_title} (legend: {self.legend})'
+
+
+class Datapoint(Base):
+    """Container for the data points for chart.
+    """
+    chart = models.ForeignKey(
+        Chart, on_delete=models.CASCADE, related_name='datapoints')
+    x_value = models.FloatField()
+    y_value = models.FloatField()
+    point_counter = models.PositiveSmallIntegerField(default=0)
+
+
+class LatticeConstant(Base):
+    """Store lattice constants of atomic structure.
+    """
+    subset = models.ForeignKey(
+        Subset, on_delete=models.CASCADE, related_name='lattice_constants')
+    a = models.FloatField()
+    b = models.FloatField()
+    c = models.FloatField()
+    alpha = models.FloatField()
+    beta = models.FloatField()
+    gamma = models.FloatField()
+
+
+class AtomicCoordinate(Base):
+    subset = models.ForeignKey(
+        Subset, on_delete=models.CASCADE, related_name='atomic_coordinates')
+    # label: label of coordinate
+    label = models.CharField(max_length=20)
+    coord_1 = models.FloatField()
+    coord_2 = models.FloatField()
+    coord_3 = models.FloatField()
+    element = models.CharField(max_length=20, blank=True)
+
+
+class ShannonIonicRadii(Base):
+    # Define element labels
+    I = 0
+    II = 1
+    IV = 2
+    X = 3
+    ELEMENT_LABELS = (
+        (I, 'element I'),
+        (II, 'element II'),
+        (IV, 'element IV'),
+        (X, 'element X')
+    )
+    compound = models.ForeignKey(
+        Compound, on_delete=models.CASCADE, related_name='shannon_ionic_radiis')
+    subset = models.ForeignKey(
+        Subset, on_delete=models.CASCADE, related_name='shannon_ionic_radiis')
+    element_label = models.PositiveSmallIntegerField(default=I, choices=ELEMENT_LABELS)
+    charge = models.PositiveSmallIntegerField(null=True, blank=True)
+    coordination = models.CharField(blank=True, max_length=20)
+    ionic_radius = models.FloatField(null=True, blank=True)
+    key = models.CharField(blank=True, max_length=20)    
+
+
+class ToleranceFactor(Base):
+    # Define data sources
+    SHANNON = 0
+    EXPERIMENTAL = 1
+    AVERAGED = 2
+    DATA_SOURCES = (
+        (SHANNON, 'Based on Shannon Radii'),
+        (EXPERIMENTAL, 'Experimental'),
+        (AVERAGED, 'Averaged')
+    )
+    compound = models.ForeignKey(
+        Compound, on_delete=models.CASCADE, related_name='tolerance_factors')
+    subset = models.ForeignKey(
+        Subset, on_delete=models.CASCADE, related_name='tolerance_factors')
+    data_source = models.PositiveSmallIntegerField(default=SHANNON, choices=DATA_SOURCES)
+    t_I = models.FloatField(null=True, blank=True)
+    t_IV_V = models.FloatField(null=True, blank=True)
+
+
+class BondLength(Base):
+    # Define data sources
+    EXPERIMENTAL = 0
+    AVERAGED = 1
+    DATA_SOURCES = (
+        (EXPERIMENTAL, 'Experimental'),
+        (AVERAGED, 'Averaged')
+    )
+    # Define r labels
+    I_X = 0
+    II_X = 1
+    IV_X = 2
+    R_LABELS = (
+        (I_X, 'I-X'),
+        (II_X, "II,I'-X"),
+        (IV_X, 'IV,V-X')
+    )
+    compound = models.ForeignKey(
+        Compound, on_delete=models.CASCADE, related_name='bond_length')   
+    subset = models.ForeignKey(
+        Subset, on_delete=models.CASCADE, related_name='bond_length')
+    data_source = models.PositiveSmallIntegerField(default=EXPERIMENTAL, choices=DATA_SOURCES)
+    r_label = models.PositiveSmallIntegerField(default=I_X, choices=R_LABELS)
+    element_a = models.CharField(max_length=20)
+    element_b = models.CharField(max_length=20)
+    bond_id = models.CharField(blank=True, max_length=20)
+    bond_length = models.FloatField(null=True, blank=True)
+    
+
+# class NumericalValueBase(Base):
+#     ACCURATE = 0
+#     APPROXIMATE = 1
+#     LOWER_BOUND = 2
+#     UPPER_BOUND = 3
+#     VALUE_TYPES = (
+#         (ACCURATE, ''),
+#         (APPROXIMATE, '≈'),
+#         (LOWER_BOUND, '>'),
+#         (UPPER_BOUND, '<'),
+#     )
+#     value = models.FloatField()
+#     value_type = models.PositiveSmallIntegerField(
+#         default=ACCURATE, choices=VALUE_TYPES)
+#     counter = models.PositiveSmallIntegerField(default=0)
+
+#     class Meta:
+#         abstract = True
+
+
+# class NumericalValue(NumericalValueBase):
+#     """Numerical value(s) associated with a data point."""
+#     PRIMARY = 0
+#     SECONDARY = 1
+#     QUALIFIER_TYPES = (
+#         (PRIMARY, 'primary'),
+#         (SECONDARY, 'secondary'),
+#     )
+#     datapoint = models.ForeignKey(Datapoint, on_delete=models.CASCADE,
+#                                   related_name='values')
+#     qualifier = models.PositiveSmallIntegerField(
+#         default=PRIMARY, choices=QUALIFIER_TYPES)
+
+#     def formatted(self, F=''):
+#         """Return the value as a formatted string.
+
+#         In particular, the value type and an error, if present, are
+#         attached to the value, e.g., ">12.3 (±0.4)".
+
+#         """
+#         value_str = f'{self.VALUE_TYPES[self.value_type][1]}{self.value:{F}}'
+#         if hasattr(self, 'error'):
+#             value_str += f' (±{self.error.value:{F}})'
+#         if hasattr(self, 'upperbound'):
+#             value_str += f'...{self.upperbound.value:{F}}'
+#         return value_str

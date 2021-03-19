@@ -22,6 +22,7 @@ const delete_all_messages = () => {
   }
 }
 
+
 // Helper function for building up part of the reference string
 const authors_as_string = (authors) => {
   let authors_formatted = [];
@@ -30,6 +31,7 @@ const authors_as_string = (authors) => {
   }
   return authors_formatted.join(', ');
 }
+
 
 // Extend any of the dropdown menus with a new entry
 // (reference, material, property, ...)
@@ -67,9 +69,10 @@ function SelectEntryHandler(entry_type, label_name, post_url) {
               pk: response.data.pk, [label_name]: form_data.get(label_name),
             });
             selectized[select_name][0].selectize.refreshOptions;
-            selectized[select_name][0].selectize.setValue(response.data.pk, 0);
+            // selectized[select_name][0].selectize.setValue(response.data.pk, 0);
           }
         }
+        // selectized[dispatcher_name][0].selectize.setValue(response.data.pk, 0);
         create_message(
           'alert-success',
           `New ${this.entry_type} "${form_data.get(label_name)}" ` +
@@ -84,7 +87,7 @@ function SelectEntryHandler(entry_type, label_name, post_url) {
         console.log(error.response.statusText);
       });
   }
-
+  
   this.form.addEventListener('submit', event => {
     event.preventDefault();
     this.add_new_entry();
@@ -102,14 +105,14 @@ function SelectEntryHandler(entry_type, label_name, post_url) {
     });
   }
 }
+
 const new_reference_handler =
   new SelectEntryHandler('reference', 'text', '/materials/references/');
-const new_system_handler =
-  new SelectEntryHandler('system', 'compound_name', '/materials/systems/');
 const new_property_handler =
   new SelectEntryHandler('property', 'name', '/materials/properties/');
 const new_unit_handler =
   new SelectEntryHandler('unit', 'label', '/materials/units/');
+
 
 // All dropdown menus are filled asynchronously
 var selectized = {};  // Must use 'var' here for Selenium
@@ -125,409 +128,7 @@ const selectize_wrapper = (name, data, initial_value, label_name) => {
     options: data,
   });
 }
-axios
-  .get('/materials/references/', {
-    transformResponse: [function(data) {
-      // Transform each article object into a string
-      let articles = JSON.parse(data);
-      for (let article of articles) {
-        article.text =
-          `${article.year} - ${authors_as_string(article.authors)}, ` +
-          `${article.journal} ${article.vol}`;
-        if (article.vol && article.pages_start) article.text += ',';
-        article.text += ` ${article.pages_start} "${article.title}"`;
-      }
-      return articles;
-    }],
-  })
-  .then(response => {
-    selectize_wrapper(
-      'select_reference', response.data, initial_reference, 'text');
-    let fixed_ref = document.getElementById('id_fixed_reference');
-    if (fixed_ref.value) {
-      selectized['select_reference'][0].selectize.setValue(fixed_ref.value);
-      selectized['select_reference'][0].selectize.disable();
-    }
-    new_reference_handler.toggle_visibility('id_select_reference');
-  });
-axios.get('/materials/systems/').then(response => {
-  selectize_wrapper(
-    'select_system', response.data, initial_system, 'compound_name');
-  new_system_handler.toggle_visibility('id_select_system');
-});
-axios.get('/materials/properties/').then(response => {
-  selectize_wrapper(
-    'primary_property', response.data, initial_primary_property, 'name');
-  selectize_wrapper(
-    'secondary_property', response.data, initial_secondary_property, 'name');
-  document
-    .getElementById('id_primary_property')
-    .dispatchEvent(new Event('change'));
-  document
-    .getElementById('id_two_axes')
-    .dispatchEvent(new Event('change'));
-  new_property_handler.toggle_visibility('id_primary_property');
-  new_property_handler.toggle_visibility('id_secondary_property');
-});
-axios.get('/materials/units/').then(response => {
-  document
-    .getElementById('id_primary_unit')
-    .setAttribute('placeholder', '--select or add--');
-  document
-    .getElementById('id_secondary_unit')
-    .setAttribute('placeholder', '--select or add--');
-  selectize_wrapper(
-    'primary_unit', response.data, initial_primary_unit, 'label');
-  selectize_wrapper(
-    'secondary_unit', response.data, initial_secondary_unit, 'label');
-  new_unit_handler.toggle_visibility('id_primary_unit');
-  new_unit_handler.toggle_visibility('id_secondary_unit');
-});
 
-// When entering data with multiple columns, set "Is figure" to true.
-// Do this only once.
-let is_figure_untested = true;
-
-// Autofill the main input data textarea
-const autofill_data = element => {
-  let i_subset = element.id.split('import-data-file_')[1];
-  const global_fill = i_subset == null;
-  const form_data = new FormData();
-  form_data.append('file', element.files[0]);
-  if (!global_fill) {
-    // Save the name of the original file for later use
-    document
-      .getElementById(`id_import_file_name_${i_subset}`)
-      .value = element.files[0].name;
-  }
-  element.value = '';  // Clear the file list
-  axios
-    .post('/materials/autofill-input-data', form_data)
-    .then(response => {
-      const result =
-        response.data.replace(/\n\r/g, '\n').replace(/\r/g, '\n'); // Windows
-      const data = result.split(/&/);
-      if (global_fill && data.length > 1) {
-        const n_subsets = document.getElementById('id_number_of_subsets');
-        for (let i = 1; i <= n_subsets.value; i++) {
-          document.getElementById('id_subset_datapoints_' + i).value =
-            data[i-1].replace(/^\n/, '');
-        }
-      } else {
-        if (i_subset) {
-          document.getElementById('id_subset_datapoints_' + i_subset).value =
-            result;
-        } else {
-          document.getElementById('id_subset_datapoints_1').value = result;
-        }
-      }
-      let is_figure = document.getElementById('id_is_figure');
-      if (is_figure_untested && !is_figure.readOnly) {
-        // If the are multiple lines and multiple columns, it is likely a
-        // figure.
-        let lines = data[0].split('\n', 2);
-        if (lines.length > 1 && lines[0].split(' ').length > 1) {
-          if (!is_figure.checked) {
-            is_figure.checked = true;
-            is_figure.dispatchEvent(new Event('change'));
-          }
-        }
-        is_figure_untested = false;
-      }
-    })
-    .catch(error => {
-      if (!i_subset) i_subset = 1;
-      document.getElementById('id_subset_datapoints_' + i_subset).value = error;
-    });
-}
-document
-  .getElementById('import-all-data')
-  .addEventListener('change', function() {
-    if ($('#id_primary_property').find(':selected').text() ===
-      'atomic structure') {
-      import_lattice_parameters(this);
-    } else {
-      autofill_data(this);
-    }
-  });
-
-// Additional file uploader
-$.fn.output_uploaded_file = function(filesToUpload) {
-  this.closest(".uploaded-files").change(function (evt) {
-
-        for (var i = 0; i < evt.target.files.length; i++) {
-            filesToUpload.push(evt.target.files[i]);
-        };
-        var output = [];
-
-        for (var i = 0, f; f = evt.target.files[i]; i++) {
-            var removeLink = "<a class=\"removeFile\" href=\"#\" data-fileid=\"" + i + "\">Remove</a>";
-
-            output.push("<li><strong>", escape(f.name), "</strong> - ",
-                f.size, " bytes. &nbsp; &nbsp; ", removeLink, "</li> ");
-        }
-
-        $(this).children(".fileList")
-            .append(output.join(""));
-    });
-}
-
-// Create a new data subset
-let counter_fixed = 0;
-const add_subset = i_subset => {
-  // The name and id of each input is appended by _<i_subset>
-  const copy =
-    document.getElementsByClassName('data-subset-template')[0].cloneNode(true);
-  copy.classList.remove('d-none', 'data-subset-template');
-  copy.getElementsByClassName('card-header')[0].innerHTML =
-    'Subset #' + i_subset;
-  for (let element of copy.querySelectorAll('input, textarea, select')) {
-    // Set the defaults of radio buttons from the first subset
-    if (i_subset > 1 && element.type === 'radio') {
-      const el = document.getElementById(element.id + '_' + 1);
-      element.checked = el.checked;
-    }
-    element.id += '_' + i_subset;
-    element.name += '_' + i_subset;
-  }
-  for (let element of copy.getElementsByTagName('label')) {
-    element.htmlFor += '_' + i_subset;
-  }
-  copy.getElementsByClassName('fixed-properties')[0].id =
-    'fixed-properties-' + i_subset;
-  const fixed_prop_btn = copy.getElementsByClassName('add-fixed-property')[0]
-  fixed_prop_btn.id = 'add-fixed-property-' + i_subset;
-  // Add a fixed property
-  fixed_prop_btn.addEventListener('click', function() {
-    add_fixed_property(i_subset, counter_fixed++);
-  });
-  copy
-    .getElementsByClassName('import-data-file')[0]
-    .addEventListener('change', function() {
-      autofill_data(this);
-    });
-  copy
-    .getElementsByClassName('import-lattice-parameters')[0]
-    .addEventListener('change', function() {
-      import_lattice_parameters(this);
-    });
-  document.getElementById('data-subset').append(copy);
-  // Upload additional file
-  var filesToUpload = [];
-  $(`#id_uploaded_files_${i_subset}`).output_uploaded_file(filesToUpload);
-  // Delete specific uploaded file
-  $(document).on("click",".removeFile", function(e){
-    e.preventDefault();
-    var fileName = $(this).parent().children("strong").text();
-     // loop through the files array and check if the name of that file matches FileName
-    // and get the index of the match
-    for(var i = 0; i < filesToUpload.length; ++ i){
-        if(filesToUpload[i].name == fileName){
-            console.log("match at: " + i);
-            // remove the one element at the index where we get a match
-            filesToUpload.splice(i, 1);
-        } 
-    }
-    console.log(filesToUpload);
-    // remove the <li> element of the removed file from the page DOM
-    $(this).parent().remove();
-  });
-}
-
-// Create a new set of fixed property fields
-const add_fixed_property =
-  (subset, counter, prop_initial='', unit_initial='', value_initial='') => {
-    const copy = document.getElementsByClassName('fixed-property-template')[0]
-                         .cloneNode(true);
-    const suffix = subset + '_' + counter;
-    let el, name;
-    copy.classList.remove('d-none', 'fixed-property-template');
-    const edit_id_and_name = type => {
-      name = 'fixed_' + type + '_' + suffix;
-      el = copy.querySelector('[name="fixed_' + type + '"]');
-      el.id = 'id_' + name;
-      el.name = name;
-    }
-    edit_id_and_name('property');
-    const property_name = name;
-    axios.get('/materials/properties/').then(response => {
-      selectize_wrapper(property_name, response.data, prop_initial, 'name');
-      new_property_handler.toggle_visibility('id_' + property_name);
-    });
-    edit_id_and_name('unit');
-    const unit_name = name;
-    axios.get('/materials/units/').then(response => {
-      selectize_wrapper(unit_name, response.data, unit_initial, 'label');
-      new_unit_handler.toggle_visibility('id_' + unit_name);
-    });
-    edit_id_and_name('value');
-    if (value_initial) {
-      copy.querySelector('[name="fixed_value_' + suffix + '"]').value =
-        value_initial;
-    }
-    // Remove a fixed property
-    copy
-      .getElementsByClassName('close-fixed-property')[0]
-      .addEventListener('click', function() {
-        let row = this.parentNode.parentNode.parentNode.parentNode;
-        row.remove();
-      });
-    document.getElementById('fixed-properties-' + subset).append(copy);
-  }
-const number_of_subsets = document.getElementById('id_number_of_subsets');
-number_of_subsets.addEventListener('change', function() {
-  const data_subset = document.getElementById('data-subset');
-  const n_subset_current = data_subset.children.length;
-  const n_subset_requested = this.value;
-  const n_to_add = n_subset_requested - n_subset_current;
-  if (n_to_add > 0) {
-    for (let i = 1; i <= n_to_add; i++) {
-      add_subset(n_subset_current+i);
-    }
-  }
-  if (n_to_add < 0) {
-    for (let i = n_to_add; i < 0; i++) {
-      data_subset.lastChild.remove();
-    }
-  }
-  /*
-  if (data_subset.hasChildNodes()) {
-    data_subset.firstChild.getElementsByClassName('subset-label-class')[0]
-               .disabled = n_subset_requested == 1;
-  } */
-  document.getElementById('import-all-data').disabled = n_subset_requested == 0;
-});
-number_of_subsets.dispatchEvent(new Event('change'));
-
-// Collapsable sections of the input
-const toggle_section_visibility = (button, hidden_field_id) => {
-  const hidden_field = document.getElementById(hidden_field_id);
-  $(button).click(function() {
-    if (hidden_field.value === 'True') {
-      hidden_field.value = 'False';
-      $(this).attr('aria-expanded', true);
-      $(this).css({'background': '#dce9ff'});
-      $(this).html($(this).html().split('remove)')[0] + 'add)');
-    } else {
-      hidden_field.value = 'True';
-      $(this).attr('aria-expanded', false);
-      $(this).css({'background': '#f3ebff'});
-      $(this).html($(this).html().split('add)')[0] + 'remove)');
-    }
-  });
-  $(button).attr('aria-expanded', hidden_field.value === 'True');
-  if (hidden_field.value === 'True') {
-    hidden_field.value = 'False';
-    $(button).click();
-  }
-}
-toggle_section_visibility(
-  '#synthesis-button', 'id_with_synthesis_details');
-toggle_section_visibility(
-  '#experimental-button', 'id_with_experimental_details');
-toggle_section_visibility(
-  '#computational-button', 'id_with_computational_details');
-
-// Helper function for setting the value and freezing/unfreezing a checkbox
-const set_checkbox = (id, value, freeze) => {
-  const element = document.getElementById(id);
-  element.checked = value;
-  if (freeze) {
-    element.readOnly = true;
-    element.onclick = function(event) { event.preventDefault(); };
-  } else {
-    element.readOnly = false;
-    element.onclick = null;
-  }
-  element.dispatchEvent(new Event('change'));
-}
-const two_axes = document.getElementById('id_two_axes');
-two_axes.addEventListener('change', function() {
-  if (this.checked) {
-    $('#id_secondary_property').parent().show();
-    $('#id_secondary_unit').parent().show();
-    document.getElementById('id_secondary_property_label').parentNode.hidden =
-      false;
-    $('label[for="id_primary_property-selectized"]').html('Primary property (y-axis)');
-    for (let element of document.getElementsByClassName('subset-datapoints')) {
-      element.placeholder = 'x1 y1\nx2 y2\n...';
-    }
-  } else {
-    $('#id_secondary_property').parent().hide();
-    $('#id_secondary_unit').parent().hide();
-    document.getElementById('id_secondary_property_label').parentNode.hidden =
-      true;
-    $('label[for="id_primary_property-selectized"]').html('Primary property');
-    for (let element of document.getElementsByClassName('subset-datapoints')) {
-      element.placeholder = 'value_1 value_2 ...';
-    }
-  }
-});
-
-// If figure then "Two axes" must be enabled
-const is_figure = document.getElementById('id_is_figure');
-is_figure.addEventListener('change', function() {
-  set_checkbox('id_two_axes', this.checked, this.checked);
-});
-is_figure.dispatchEvent(new Event('change'));
-
-// Prefill most of the form from an other data set
-const prefill_button = document.getElementById('prefill-button');
-prefill_button.addEventListener('click', event => {
-  event.preventDefault();
-  const prefill_input = document.getElementById('prefill');
-  axios
-    .get('/materials/prefilled-form/' + prefill_input.value)
-    .then(response => {
-      const values = response.data['values'];
-      for (const key in values) {
-        const el = document.getElementById('id_' + key);
-        if (el) {
-          if (el.type === 'select-one') {
-            selectized[key][0].selectize.setValue(values[key]);
-          } else if (el.type === 'checkbox') {
-            el.checked = values[key];
-          } else {
-            el.value = values[key];
-          }
-        } else { // radio buttons
-          document.querySelector('.form-check-input[name="' + key +
-                                 '"][value="' + values[key] + '"]')
-                  .checked = true;
-        }
-      }
-      const expandables = ['synthesis', 'experimental', 'computational'];
-      for (let section of expandables) {
-        const button = '#' + section + '-button';
-        const hidden_field = document.getElementById('id_with_' + section + '_details');
-        // Django renders the value of hidden_field as a string of 'True'
-        // or 'False', which is different from the aria-expanded value of
-        // 'true' or 'false' as set by Bootstrap, which leads to the messy conditional.
-        const cond = ($(button).attr('aria-expanded') === 'false' &&
-                      hidden_field.value === 'True') ||
-                     ($(button).attr('aria-expanded') === 'true' &&
-                      hidden_field.value === 'False');
-        if (cond) {
-          if (hidden_field.value === 'True') {
-            hidden_field.value = 'False';
-          } else {
-            hidden_field.value = 'True';
-          }
-          $(button).click();
-        }
-      }
-      document.getElementById('id_primary_property').dispatchEvent(new Event('change'));
-      document.getElementById('id_two_axes').dispatchEvent(new Event('change'));
-      document.getElementById('id_is_figure').dispatchEvent(new Event('change'));
-      prefill_input.value = '';
-    }).
-     catch(error => {
-       create_message('alert-danger',
-                      'Data set #' + prefill_input.value + ' does not exist');
-       console.log(error.message);
-       console.log(error.response.statusText);
-     });
-});
 
 // Adding and removing authors on the new reference form
 document
@@ -577,70 +178,637 @@ document
   .getElementById('add-more-authors-btn')
   .dispatchEvent(new Event('click'));
 
+
+// Collapsable sections of the input
+const toggle_section_visibility = (button_id, hidden_field_id, data_field_id) => {
+  const hidden_field = document.getElementById(hidden_field_id);
+  const button = document.getElementById(button_id);
+  const data_field = document.getElementById(data_field_id);
+  button.addEventListener('click', function() {
+    $(data_field).toggle();
+    if (hidden_field.value === 'True') {
+      hidden_field.value = 'False';
+      $(this).attr('aria-expanded', false);
+      $(this).css({'background': '#dce9ff'});
+      $(this).html($(this).html().split('remove)')[0] + 'add)');
+    } else {
+      hidden_field.value = 'True';
+      $(this).attr('aria-expanded', true);
+      $(this).css({'background': '#f3ebff'});
+      $(this).html($(this).html().split('add)')[0] + 'remove)');
+    }
+  });
+  // $(button).attr('aria-expanded', hidden_field.value === 'True');
+  // if (hidden_field.value === 'True') {
+  //   hidden_field.value = 'False';
+  //   button.dispatchEvent(new Event('click'));
+  }
+
+
+// Function that autofills the datapoints textarea
+const autofill_data = (i_dataset, i_subset, copy_element, element) => {
+  // let i_dataset, i_subset = element.id.split('import-data-file_')[1].split('_');
+  const global_fill = i_subset == null;
+  const form_data = new FormData();
+  form_data.append('file', element.files[0]);
+  if (!global_fill) {
+    // Save the name of the original file for later use
+    copy_element
+      .querySelector(`#id_import_file_name_${i_dataset}_${i_subset}`)
+      .value = element.files[0].name;
+  }
+  element.value = '';  // Clear the file list
+  axios
+    .post('/materials/autofill-input-data', form_data)
+    .then(response => {
+      const result =
+        response.data.replace(/\n\r/g, '\n').replace(/\r/g, '\n'); // Windows
+      const data = result.split(/&/);
+      if (global_fill && data.length > 1) {
+        const n_subsets = document.getElementById('id_number_of_subsets_' + i_dataset);
+        for (let i = 1; i <= n_subsets.value; i++) {
+          copy_element.querySelector('#id_datapoints_' + 'i_dataset_' + i).value =
+            data[i-1].replace(/^\n/, '');
+        }
+      } else {
+        if (i_subset) {
+          copy_element.querySelector('#id_datapoints_' + i_dataset + '_' + i_subset).value = result;
+        } else {
+          copy_element.querySelector('#id_datapoints_' + i_dataset + '_1').value = result;
+        }
+      }
+    })
+    .catch(error => {
+      if (!i_subset) i_subset = 1;
+      copy_element.querySelector('#id_datapoints_' + i_dataset + '_' + i_subset).value = error;
+    });
+}
+
+
+// Function that uploads multiple additional files
+$.fn.fileUploader = function(filesToUpload) {
+  this.closest(".additional-files").change(function(evt) {
+        for (var i = 0; i < evt.target.files.length; i++) {
+            filesToUpload.push(evt.target.files[i]);
+        };
+        var output = [];
+        for (var i = 0, f; f = evt.target.files[i]; i++) {
+            var removeLink = "<a class=\"removeFile\" href=\"#\" data-fileid=\"" + i + "\">Remove</a>";
+            output.push("<li><strong>", escape(f.name), "</strong> - ",
+                f.size, " bytes. &nbsp; &nbsp; ", removeLink, "</li> ");
+        }
+        $(this).children(".fileList")
+            .append(output.join(""));
+  });
+}
+
 // Hide special property fields under subsets and show only normal input
-function reset_subset_fields() {
-  for (let input_type of ['atomic-structure-input', 'phase-transition-input']) {
-    for (let element of document.getElementsByClassName(input_type)) {
+function reset_subset_fields(subsets_all_element, i_dataset) {
+  for (let input_type of ['atomic-structure-input', 'tolerance-bond-input']) {
+    for (let element of subsets_all_element.getElementsByClassName(input_type)) {
       element.hidden = true;
     }
   }
-  for (let element of document.getElementsByClassName('normal-input')) {
+  for (let element of subsets_all_element.getElementsByClassName('normal-input')) {
     element.hidden = false;
   }
-  if (document.getElementById('id_is_figure').readOnly) {
-    set_checkbox('id_is_figure', false, false);
-    set_checkbox('id_two_axes', false, false);
-  }
   let elements =
-    document.querySelectorAll('input[name^="lattice_constant_"]',
-                              'input[name="phase_transition_value"]');
+    document.querySelectorAll('input[name^="lattice_constant_"]');
   for (let element of elements) {
     element.required = false;
   }
-  elements = document.querySelectorAll('textarea[name^="subset_datapoints_"]');
-  for (let element of elements) {
-    element.required = true;
-  }
-  for (let label of document.querySelectorAll('.card-subset legend')) {
-    label.innerHTML =
-      label.innerHTML.replace(/Initial crystal system/, 'Crystal system');
-  }
 }
 
-// Atomic structure specific
-$('#id_primary_property').change(function() {
-  if ($('#id_primary_property').find(':selected').text() ===
-    'atomic structure') {
-    reset_subset_fields();
-    for (let el of document.getElementsByClassName('atomic-structure-input')) {
-      el.hidden = false;
+
+// Show atomic structure input fields; hide normal input fields and tolerance-bond input fields
+const show_atomic_structure_fields = (subsets_all_element, i_dataset) => {
+  $('#id_primary_property_' + i_dataset).change(function() {
+    if ($('#id_primary_property_' + i_dataset).find(':selected').text() ===
+      'atomic structure') {
+      reset_subset_fields(subsets_all_element, i_dataset);
+      for (let el of subsets_all_element.getElementsByClassName('atomic-structure-input')) {
+        el.hidden = false;
+      }
+      for (let element of subsets_all_element.getElementsByClassName('normal-input')) {
+        element.hidden = true;
+      }
+      // Make these fields required only if 'atomic structure' is the selected property
+      for (let element of
+        subsets_all_element.querySelectorAll('input[name^="lattice_constant_"]')) {
+        element.required = true;
+      }
     }
-    for (let element of document.getElementsByClassName('normal-input')) {
-      element.hidden = true;
+  });
+}
+
+
+// Show tolerance factor/ bond length input fields; hide normal input fields and atomic structure fields
+const show_tolerance_bond_fields = (subsets_all_element, i_dataset) => {
+  $('#id_primary_property_' + i_dataset).change(function() {
+    if (['tolerance factor', 'bond length'].includes($('#id_primary_property_' + i_dataset).find(':selected').text())) {
+      reset_subset_fields(subsets_all_element, i_dataset);
+      for (let el of subsets_all_element.getElementsByClassName('tolerance-bond-input')) {
+        el.hidden = false;
+      }
+      for (let element of subsets_all_element.getElementsByClassName('normal-input')) {
+        element.hidden = true;
+      }
+      for (let element of subsets_all_element.getElementsByClassName('atomic-structure-input')) {
+        element.hidden = true;
+      }
     }
-    set_checkbox('id_is_figure', false, true);
-    set_checkbox('id_two_axes', false, true);
-    // Make these fields required only if 'atomic structure' is the selected
-    // property
-    for (let element of
-      document.querySelectorAll('input[name^="lattice_constant_"]')) {
-      element.required = true;
+  });
+}
+
+
+// Function that appends a dataset template
+const add_dataset = i_dataset => {
+  // Append element's id and name with _${i_dataset} suffix
+  const copy_ds = document.getElementsByClassName('dataset-template')[0].cloneNode(true);
+  copy_ds.classList.remove('d-none', 'dataset-template');
+  copy_ds.getElementsByClassName('card-header')[0].innerHTML =
+    'Property #' + i_dataset;
+  for (let element of copy_ds.querySelectorAll('input, textarea, select, button')) {
+    // Set the defaults of radio buttons from the first dataset
+    if (i_dataset > 1 && element.type === 'radio') {
+      const el = document.getElementById(element.id + '_' + 1);
+      element.checked = el.checked;
     }
-    for (let element of
-      document.querySelectorAll('textarea[name^="subset_datapoints_"]')) {
-      element.required = false;
+    // Set the default of number of subsets as 1
+    if (i_dataset > 1 && element.id === `id_number_of_subsets_${i_dataset}`) {
+      const el = document.getElementById(element.id + '_' + 1);
+      element.value = 1;
+    }
+    element.id += '_' + i_dataset;
+    element.name += '_' + i_dataset;
+  }
+  for (let element of copy_ds.getElementsByTagName('label')) {
+    element.htmlFor += '_' + i_dataset;
+  }
+
+  for (let element of copy_ds.getElementsByClassName('collapse')) {
+    element.id += '_' + i_dataset;
+  }
+
+  const subset = copy_ds.querySelector('#subsets_all')
+  subset.id += '_' + i_dataset;
+
+  // Add a new property
+  let dispatcher_name = 'primary_property_' + i_dataset;
+  if (initial_primary_property.length === 0) {
+    axios
+    .get('/materials/properties/')
+    .then(response => {
+      selectize_wrapper(dispatcher_name, response.data, '', 'name');
+      copy_ds.querySelector('#id_' + dispatcher_name).dispatchEvent(new Event('change'));
+      new_property_handler.toggle_visibility('id_' + dispatcher_name);
+    });
+  } else {
+    axios
+    .get('/materials/properties/')
+    .then(response => {
+      selectize_wrapper(dispatcher_name, response.data, initial_primary_property[i_dataset-1], 'name');
+      copy_ds.querySelector('#id_' + dispatcher_name).dispatchEvent(new Event('change'));
+      new_property_handler.toggle_visibility('id_' + dispatcher_name);
+    });
+  }
+
+  
+
+  // Append dataset template to the document
+  document.getElementById('datasets_all').append(copy_ds);
+
+  
+  // Add/remove synthesis methods
+  toggle_section_visibility(
+    'synthesis-button_' + i_dataset,
+    'id_with_synthesis_details_' + i_dataset,
+    'synthesis-body_' + i_dataset);
+  // Add/remove experimental details
+  toggle_section_visibility(
+    'experimental-button_' + i_dataset,
+    'id_with_experimental_details_' + i_dataset,
+    'experimental-body_' + i_dataset);
+  //Add/remove computational details
+  toggle_section_visibility(
+    'computational-button_' + i_dataset,
+    'id_with_computational_details_' + i_dataset,
+    'computational-body_' + i_dataset);
+
+  // Add a new subset to a specific dataset
+  const number_of_subsets = document.getElementById('id_number_of_subsets_' + i_dataset);
+  let all_subsets = document.getElementById('subsets_all_' + i_dataset);
+  number_of_subsets.addEventListener('change', function() {
+    const n_subset_current = subset.children.length;
+    const n_subset_requested = this.value;
+    const n_to_add = n_subset_requested - n_subset_current;
+    if (n_to_add > 0) {
+      for (let i = 1; i <= n_to_add; i++) {
+        add_subset(i_dataset, n_subset_current+i);
+        $('#id_primary_property_' + i_dataset).change();
+      }
+    }
+    if (n_to_add < 0) {
+      for (let i = n_to_add; i < 0; i++) {
+        subset.lastChild.remove();
+      }
+    }
+  });
+  number_of_subsets.dispatchEvent(new Event('change'));
+
+  show_atomic_structure_fields(all_subsets, i_dataset);
+  show_tolerance_bond_fields(all_subsets, i_dataset);
+
+  $('#id_primary_property_' + i_dataset).change(function() {
+    const selected = $('#id_primary_property_' + i_dataset).find(':selected').text();
+    if (selected !== 'atomic structure' && selected !== 'tolerance factor'
+      && selected !== 'bond length') {
+      reset_subset_fields(all_subsets, i_dataset);
+    }
+  });
+
+}
+
+
+// Function that appends a subset template
+let counter_fixed = 0;
+let counter_bond_length = 0;
+const add_subset = (i_dataset, i_subset) => {
+  // Append element's id and name with _${i_dataset}_${i_subset} suffix
+  const copy =
+    document.getElementsByClassName('subset-template')[0].cloneNode(true);
+  copy.classList.remove('d-none', 'subset-template');
+  copy.getElementsByClassName('card-header')[0].innerHTML =
+    'Subset #' + i_subset;
+  const suffix = '_' + i_dataset + '_' + i_subset;
+  for (let element of copy.querySelectorAll('input, textarea, select, button')) {
+    // Set the defaults of radio buttons from the first subset
+    // if (i_subset > 1 && element.type === 'radio') {
+    //   const el = document.getElementById(element.id + '_' + 1);
+    //   element.checked = el.checked;
+    // }
+    element.id += suffix;
+    element.name += suffix;
+  }
+  for (let element of copy.getElementsByTagName('label')) {
+    element.htmlFor += suffix;
+  }
+  
+  for (let element of copy.getElementsByClassName('collapse')) {
+    element.id += suffix;
+  }
+
+  const legend = copy.querySelector('#legends_all')
+  legend.id += '_' + i_dataset + '_' + i_subset;
+
+  // Fill datapoints textarea with data from imported file
+  copy
+    .getElementsByClassName('import-data-file')[0]
+    .addEventListener('change', function() {
+      autofill_data(i_dataset, i_subset, copy, this);
+    });
+
+  // Add fixed properties
+  copy.getElementsByClassName('fixed-properties')[0].id =
+    'fixed-properties_' + i_dataset + '_' + i_subset;
+  const fixed_prop_btn = copy.getElementsByClassName('add-fixed-property')[0]
+  // fixed_prop_btn.id = 'add-fixed-property_' + i_dataset + '_' + i_subset;
+  fixed_prop_btn.addEventListener('click', function() {
+    add_fixed_property(i_dataset, i_subset, ++counter_fixed);
+  });
+
+  // Fill atomic structure data from imported file
+  copy
+    .getElementsByClassName('import-lattice-parameters')[0]
+    .addEventListener('change', function() {
+      import_lattice_parameters(i_dataset, i_subset, copy, this);
+    });
+
+  // Add bond lengths
+  copy.getElementsByClassName('bond-lengths')[0].id =
+    'bond-lengths_' + i_dataset + '_' + i_subset;
+  const bond_length_btn = copy.getElementsByClassName('add-bond-length')[0]
+  // fixed_prop_btn.id = 'add-fixed-property_' + i_dataset + '_' + i_subset;
+  bond_length_btn.addEventListener('click', function() {
+    add_bond_length(i_dataset, i_subset, ++counter_bond_length);
+  });
+  
+  // Select or add a reference
+  let reference_name = 'select_reference_' + i_dataset + '_' + i_subset;
+  if (initial_reference.length < i_dataset || initial_reference[i_dataset-1].length < i_subset) {
+    // console.log("initial is empty.");
+    axios
+      .get('/materials/references/', {
+        transformResponse: [function(data) {
+          // Transform each article object into a string
+          let articles = JSON.parse(data);
+          for (let article of articles) {
+            article.text =
+              `${article.year} - ${authors_as_string(article.authors)}, ` +
+              `${article.journal} ${article.vol}`;
+            if (article.vol && article.pages_start) article.text += ',';
+            article.text += ` ${article.pages_start} "${article.title}"`;
+          }
+          return articles;
+        }],
+      })
+      .then(response => {
+        selectize_wrapper(reference_name, response.data, '', 'text');
+        new_reference_handler.toggle_visibility('id_' + reference_name);
+      });
+  } else {
+    // console.log("not empty:", initial_reference[i_dataset-1][i_subset-1]);
+    axios
+      .get('/materials/references/', {
+        transformResponse: [function(data) {
+          // Transform each article object into a string
+          let articles = JSON.parse(data);
+          for (let article of articles) {
+            article.text =
+              `${article.year} - ${authors_as_string(article.authors)}, ` +
+              `${article.journal} ${article.vol}`;
+            if (article.vol && article.pages_start) article.text += ',';
+            article.text += ` ${article.pages_start} "${article.title}"`;
+          }
+          return articles;
+        }],
+      })
+      .then(response => {
+        selectize_wrapper(reference_name, response.data, initial_reference[i_dataset-1][i_subset-1], 'text');
+        new_reference_handler.toggle_visibility('id_' + reference_name);
+      });
+  }
+  
+    
+  document.getElementById('subsets_all_' + i_dataset).append(copy);
+
+  // Add/remove data for chart
+  toggle_section_visibility(
+    'chart-button' + suffix,
+    'id_with_data_for_chart' + suffix,
+    'chart-body' + suffix);
+  // Add/remove data for atomic structure
+  // toggle_section_visibility(
+  //   'atomic-structure-button' + suffix,
+  //   'id_with_data_for_atomic_structure' + suffix,
+  //   'atomic-structure-body' + suffix);
+  // Add/remove fixed properties
+  toggle_section_visibility(
+    'fixed-property-button' + suffix,
+    'id_with_fixed_property' + suffix,
+    'fixed-property-body' + suffix);
+  // // Add/remove additional files
+  // toggle_section_visibility(
+  //   'additional-file-button' + suffix,
+  //   'id_with_additional_files' + suffix,
+  //   'additional-file-body' + suffix);
+  // // Add/remove reference
+  // toggle_section_visibility(
+  //   'reference-button' + suffix,
+  //   'id_with_reference' + suffix,
+  //   'reference-body' + suffix);
+
+  // Add legends
+  const number_of_curves = document.querySelector('#id_number_of_curves_' + i_dataset + '_' + i_subset);  
+  number_of_curves.addEventListener('change', function() {
+    const n_curve_current = legend.children.length;
+    const n_curve_requested = this.value;
+    const n_to_add = n_curve_requested - n_curve_current;
+    if (n_to_add > 0) {
+      for (let i = 1; i <= n_to_add; i++) {
+        add_legend(i_dataset, i_subset, n_curve_current+i);
+      }
+    }
+    if (n_to_add < 0) {
+      for (let i = n_to_add; i < 0; i++) {
+        legend.lastChild.remove();
+      }
+    }
+  });
+  number_of_curves.dispatchEvent(new Event('change'));
+}
+
+
+// Function that adds a legend template
+const add_legend = (i_dataset, i_subset, i_curve) => {
+  const copy =
+    document.getElementsByClassName('legend-template')[0].cloneNode(true);
+  copy.classList.remove('d-none', 'legend-template');
+  copy.getElementsByClassName('input-group-text')[0].innerHTML =
+    'Curve #' + i_curve;
+  const suffix = '_' + i_dataset + '_' + i_subset + '_' + i_curve;
+  for (let element of copy.querySelectorAll('input, textarea, select')) {
+    element.id += suffix;
+    element.name += suffix;
+  }
+  document.getElementById('legends_all_' + i_dataset + '_' + i_subset).append(copy);
+}
+
+
+
+// Function that creates a new set of fixed property fields
+const add_fixed_property = (i_dataset, i_subset, counter, prop_initial='', unit_initial='', sign_initial='', value_initial='') => {
+    const copy = document.getElementsByClassName('fixed-property-template')[0]
+                         .cloneNode(true);
+    const suffix = i_dataset + '_' + i_subset + '_' + counter;
+    let el, name;
+    copy.classList.remove('d-none', 'fixed-property-template');
+    const edit_id_and_name = type => {
+      name = 'fixed_' + type + '_' + suffix;
+      el = copy.querySelector('[name="fixed_' + type + '"]');
+      el.id = 'id_' + name;
+      el.name = name;
+    }
+    edit_id_and_name('property');
+    const property_name = name;
+    axios.get('/materials/properties/').then(response => {
+      selectize_wrapper(property_name, response.data, prop_initial, 'name');
+      new_property_handler.toggle_visibility('id_' + property_name);
+    });
+    edit_id_and_name('unit');
+    const unit_name = name;
+    axios.get('/materials/units/').then(response => {
+      selectize_wrapper(unit_name, response.data, unit_initial, 'label');
+      new_unit_handler.toggle_visibility('id_' + unit_name);
+    });
+    edit_id_and_name('sign');
+    if (sign_initial) {
+      copy.querySelector('[name="fixed_sign_' + suffix + '"]').value = sign_initial;
+    }
+    edit_id_and_name('value');
+    if (value_initial) {
+      copy.querySelector('[name="fixed_value_' + suffix + '"]').value = value_initial;
+    }
+    // Remove a fixed property
+    copy
+      .getElementsByClassName('close-fixed-property')[0]
+      .addEventListener('click', function() {
+        let row = this.parentNode.parentNode.parentNode.parentNode;
+        row.remove();
+      });
+    document.getElementById('fixed-properties_' + i_dataset + '_' + i_subset).append(copy);
+}
+
+
+// Function that create a bond length record
+const add_bond_length = (i_dataset, i_subset, counter, element_a_init='', element_b_init='', 
+  r_avg_init='', r_shannon_init='', global_average_init='', ravg_rglobal_init='', ravg_rshannon_init='') => {
+  // Append a bond length
+  const copy = document.getElementsByClassName('bond-length-template')[0].cloneNode(true);
+  const suffix = '_' + i_dataset + '_' + i_subset + '_' + counter;
+  let el, name;
+  copy.classList.remove('d-none', 'bond-length-template');
+  for (let element of copy.getElementsByTagName('input')) {
+    element.id += suffix;
+    element.name += suffix;
+  }
+  if (element_a_init) {
+    copy.querySelector('#id_element_a' + suffix).value = element_a_init;
+  }
+  if (element_b_init) {
+    copy.querySelector('#id_element_b' + suffix).value = element_b_init;
+  }
+  if (r_avg_init) {
+    copy.querySelector('#id_r_avg' + suffix).value = r_avg_init;
+  }
+  if (r_shannon_init) {
+    copy.querySelector('#id_r_shannon' + suffix).value = r_shannon_init;
+  }
+  if (global_average_init) {
+    copy.querySelector('#id_global_average' + suffix).value = global_average_init;
+  }
+  if (ravg_rglobal_init) {
+    copy.querySelector('#id_ravg_rglobal' + suffix).value = ravg_rglobal_init;
+  }
+  if (ravg_rshannon_init) {
+    copy.querySelector('#id_ravg_rshannon' + suffix).value = ravg_rshannon_init;
+  }
+  // Remove a bond length
+  copy
+    .getElementsByClassName('close-bond-length')[0]
+    .addEventListener('click', function() {
+      let row = this.parentNode.parentNode.parentNode.parentNode;
+      row.remove();
+    });
+  document.getElementById('bond-lengths_' + i_dataset + '_' + i_subset).append(copy);
+}
+
+
+// Add a new dataset
+const number_of_datasets = document.getElementById('id_number_of_datasets');
+number_of_datasets.addEventListener('change', function() {
+  const dataset = document.getElementById('datasets_all');
+  const n_dataset_current = dataset.children.length;
+  const n_dataset_requested = this.value;
+  const n_to_add = n_dataset_requested - n_dataset_current;
+  if (n_to_add > 0) {
+    for (let i = 1; i <= n_to_add; i++) {
+      add_dataset(n_dataset_current+i);
+    }
+  }
+  if (n_to_add < 0) {
+    for (let i = n_to_add; i < 0; i++) {
+      dataset.lastChild.remove();
     }
   }
 });
-const import_lattice_parameters = element => {
-  let i_subset = element.id.split('import-lattice-parameters_')[1];
+number_of_datasets.dispatchEvent(new Event('change'));
+
+
+
+
+
+// // Additional file uploader
+// const output_additional_file = filesToUpload => {
+//   this.closest(".additional-files").change(function(evt) {
+//         for (var i = 0; i < evt.target.files.length; i++) {
+//             filesToUpload.push(evt.target.files[i]);
+//         };
+//         var output = [];
+//         for (var i = 0, f; f = evt.target.files[i]; i++) {
+//             var removeLink = "<a class=\"removeFile\" href=\"#\" data-fileid=\"" + i + "\">Remove</a>";
+//             output.push("<li><strong>", escape(f.name), "</strong> - ",
+//                 f.size, " bytes. &nbsp; &nbsp; ", removeLink, "</li> ");
+//         }
+//         $(this).children(".fileList")
+//             .append(output.join(""));
+//   });
+// }
+
+
+
+
+
+
+// Prefill most of the form from an other data set
+// const prefill_button = document.getElementById('prefill-button');
+// prefill_button.addEventListener('click', event => {
+//   event.preventDefault();
+//   const prefill_input = document.getElementById('prefill');
+//   axios
+//     .get('/materials/prefilled-form/' + prefill_input.value)
+//     .then(response => {
+//       const values = response.data['values'];
+//       for (const key in values) {
+//         const el = document.getElementById('id_' + key);
+//         if (el) {
+//           if (el.type === 'select-one') {
+//             selectized[key][0].selectize.setValue(values[key]);
+//           } else if (el.type === 'checkbox') {
+//             el.checked = values[key];
+//           } else {
+//             el.value = values[key];
+//           }
+//         } else { // radio buttons
+//           document.querySelector('.form-check-input[name="' + key +
+//                                  '"][value="' + values[key] + '"]')
+//                   .checked = true;
+//         }
+//       }
+//       const expandables = ['synthesis', 'experimental', 'computational'];
+//       for (let section of expandables) {
+//         const button = '#' + section + '-button';
+//         const hidden_field = document.getElementById('id_with_' + section + '_details');
+//         // Django renders the value of hidden_field as a string of 'True'
+//         // or 'False', which is different from the aria-expanded value of
+//         // 'true' or 'false' as set by Bootstrap, which leads to the messy conditional.
+//         const cond = ($(button).attr('aria-expanded') === 'false' &&
+//                       hidden_field.value === 'True') ||
+//                      ($(button).attr('aria-expanded') === 'true' &&
+//                       hidden_field.value === 'False');
+//         if (cond) {
+//           if (hidden_field.value === 'True') {
+//             hidden_field.value = 'False';
+//           } else {
+//             hidden_field.value = 'True';
+//           }
+//           $(button).click();
+//         }
+//       }
+//       document.getElementById('id_primary_property').dispatchEvent(new Event('change'));
+//       document.getElementById('id_two_axes').dispatchEvent(new Event('change'));
+//       document.getElementById('id_is_figure').dispatchEvent(new Event('change'));
+//       prefill_input.value = '';
+//     }).
+//      catch(error => {
+//        create_message('alert-danger',
+//                       'Data set #' + prefill_input.value + ' does not exist');
+//        console.log(error.message);
+//        console.log(error.response.statusText);
+//      });
+// });
+
+
+// Autofill lattice parameters and coordinates from uploaded file
+const import_lattice_parameters = (i_dataset, i_subset, copy_element, element) => {
+  // let i_subset = element.id.split('import-lattice-parameters_')[1];
   const form_data = new FormData();
   form_data.append('file', element.files[0]);
   const is_cif_format = element.files[0].name.match(/\.cif$/) !== null;
   if (i_subset) {
     // Save the name of the original file for later use
-    document
-      .getElementById(`id_import_file_name_${i_subset}`)
+    copy_element
+      .querySelector(`#id_import_file_name_atomic_${i_dataset}_${i_subset}`)
       .value = element.files[0].name;
   }
   element.value = '';  // Clear the file list
@@ -662,7 +830,7 @@ const import_lattice_parameters = element => {
         }
         const i_subset_loc = i_subset ? i_subset : '1';
         const geometry_format =
-          document.getElementById(`id_geometry_format_${i_subset_loc}`);
+          copy_element.querySelector(`#id_geometry_format_${i_dataset}_${i_subset_loc}`);
         if (aims_format) {
           // Generate the atomic structure (lattice constants and angles)
           // from lattice vectors
@@ -732,124 +900,55 @@ const import_lattice_parameters = element => {
           }
         }
         const set_value = (part_id, value) => {
-          document.getElementById(part_id + dest_suffix).value = value;
+          copy_element.querySelector(part_id + dest_suffix).value = value;
         }
-        set_value('id_lattice_constant_a_', a);
-        set_value('id_lattice_constant_b_', b);
-        set_value('id_lattice_constant_c_', c);
-        set_value('id_lattice_constant_alpha_', alpha);
-        set_value('id_lattice_constant_beta_', beta);
-        set_value('id_lattice_constant_gamma_', gamma);
-        set_value('id_atomic_coordinates_', input_data);
+        set_value('#id_lattice_constant_a_', a);
+        set_value('#id_lattice_constant_b_', b);
+        set_value('#id_lattice_constant_c_', c);
+        set_value('#id_lattice_constant_alpha_', alpha);
+        set_value('#id_lattice_constant_beta_', beta);
+        set_value('#id_lattice_constant_gamma_', gamma);
+        set_value('#id_atomic_coordinates_', input_data);
       }
       try {
         if (i_subset) {
-          process_batch(data, i_subset);
+          process_batch(data, i_dataset + '_' + i_subset);
         } else {
           data = data.replace(/\n\r/g, '\n').replace(/\r/g, '\n'); // Windows
           const subsets = data.split('&');
           for (let i = 0; i < subsets.length; i++) {
             if (subsets[i]) {
-              process_batch(subsets[i].replace(/^\n/, ''), i+1);
+              process_batch(subsets[i].replace(/^\n/, ''), `${i_dataset}_${i+1}`);
             }
           }
         }
       } catch(error) {
-        document.getElementById('id_atomic_coordinates_' + i_subset).value = error;
+        copy_element.querySelector('#id_atomic_coordinates_' + i_dataset + '_' + i_subset).value = error;
       }
     }).
      catch(error => {
        if (!i_subset) i_subset = 1;
-       document
-         .getElementById('id_atomic_coordinates_' + i_subset).innerHTML = error;
+       copy_element
+         .querySelector('#id_atomic_coordinates_' + i_dataset + '_' + i_subset).innerHTML = error;
      });
 }
 
-// Band structure specific
-let band_structure_selected = false;
-$('#id_primary_property').change(function() {
-  const primary_unit = $(this).parent().next();
-  if ($(this).find(':selected').text() === 'band structure') {
-    reset_subset_fields();
-    primary_unit.hide();
-    number_of_subsets.readOnly = true;
-    number_of_subsets.value = 1;
-    number_of_subsets.dispatchEvent(new Event('change'));
-    band_structure_selected = true;
-    set_checkbox('id_is_figure', false, true);
-    set_checkbox('id_two_axes', false, true);
-    for (let el of document.getElementsByClassName('subset-datapoints')) {
-      el.placeholder = '# K-point path\nX L\nL Gamma\n...';
-    }
-  } else if (band_structure_selected) {
-    primary_unit.show();
-    number_of_subsets.readOnly = false;
-    band_structure_selected = false;
-    set_checkbox('id_is_figure', false, false);
-    set_checkbox('id_two_axes', false, false);
-  }
-});
 
-// Attempt to autofill the k-path textarea from control.in if present
-const uploaded_files = document.getElementById('id_uploaded_files')
-uploaded_files.addEventListener('change', function() {
-  const prop = document.getElementById('id_primary_property');
-  if (prop.options[prop.selectedIndex].text === 'band structure' &&
-      !document.getElementById('id_subset_datapoints_1').value) {
-    let control_file = null;
-    for (let file of this.files) {
-      if (file.name === 'control.in') {
-        control_file = file;
-        break;
-      }
-    }
-    if (control_file) {
-      const form_data = new FormData();
-      form_data.append('file', control_file);
-      axios
-        .post('/materials/extract-k-from-control-in', form_data)
-        .then(response => {
-          const result =
-            response.data.replace(/\n\r/g, '\n').replace(/\r/g, '\n'); // Windows
-          document.getElementById('id_subset_datapoints_1').value = result;
-        });
-    }
-  }
-});
 
-// Phase transition specific
-$('#id_primary_property').change(function() {
-  if ($('#id_primary_property').find(':selected').text()
-                               .startsWith('phase transition ')) {
-    reset_subset_fields();
-    for (let el of document.getElementsByClassName('phase-transition-input')) {
-      el.hidden = false;
-    }
-    for (let element of document.getElementsByClassName('normal-input')) {
-      element.hidden = true;
-    }
-    set_checkbox('id_is_figure', false, true);
-    set_checkbox('id_two_axes', false, true);
-    for (let label of document.querySelectorAll('.card-subset legend')) {
-      label.innerHTML =
-        label.innerHTML.replace(/^\s*Crystal system/, 'Initial crystal system');
-    }
-    for (let element of document.querySelectorAll(
-      'input[name="phase_transition_crystal_system_final"]',
-      'input[name="phase_transition_value"]')) {
-      element.required = true;
-    }
-    for (let element of
-      document.querySelectorAll('textarea[name^="subset_datapoints_"]')) {
-      element.required = false;
-    }
-  }
-});
-$('#id_primary_property').change(function() {
-  const selected = $('#id_primary_property').find(':selected').text();
-  if (selected !== 'band structure' &&
-      selected !== 'atomic structure' &&
-      !selected.startsWith('phase transition ')) {
-    reset_subset_fields();
-  }
-});
+
+
+
+
+
+
+
+// document
+//   .getElementById('import-all-data')
+//   .addEventListener('change', function() {
+//     if ($('#id_primary_property').find(':selected').text() ===
+//       'atomic structure') {
+//       import_lattice_parameters(this);
+//     } else {
+//       autofill_data(this);
+//     }
+//   });

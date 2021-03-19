@@ -62,42 +62,6 @@ class AddReferenceForm(forms.Form):
         help_text='Enter DOI or ISBN if applicable.')
 
 
-class AddSystemForm(forms.Form):
-    compound_name = forms.CharField(
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        max_length=1000,
-        help_text='Compound name (most common name)')
-    formula = forms.CharField(
-        label='Chemical formula',
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        max_length=200,
-        help_text='Chemical formula')
-    group = forms.CharField(
-        required=False,
-        label='Alternate names',
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        max_length=100,
-        help_text=''
-        'Please list all possible variations of this compound (besides '
-        'those entered above), including different uses of parentheses - '
-        'this makes the compound more easily searchable.')
-    organic = forms.CharField(
-        label='organic component',
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        max_length=100,
-        help_text='Enter organic component')
-    inorganic = forms.CharField(
-        label='inorganic component',
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        max_length=100,
-        help_text='Enter inorganic component')
-    description = forms.CharField(
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        max_length=1000,
-        help_text='Description of the compound (optional)')
-
-
 class AddPropertyForm(forms.Form):
     name = forms.CharField(
         widget=forms.TextInput(attrs={'class': 'form-control'}),
@@ -117,124 +81,36 @@ class AddDataForm(forms.Form):
 
     # Where to redirect after successfully submitting data
     return_url = forms.CharField(required=False, widget=forms.HiddenInput())
-    # General
-    related_data_sets = forms.CharField(
-        required=False,
+
+    # General fields
+    formula = AutoCharField(
+        model=models.Compound,
+        field='formula',
         widget=forms.TextInput(attrs={'class': 'form-control'}),
-        help_text=''
-        'List of data set IDs directly related (linked) to this data (space '
-        'separated). Two or more data sets can be linked if they are results '
-        'of the same experiment or calculation but describe different '
-        'physical properties (e.g., "band structure" and "band gap" or '
-        '"absorption coefficient" and "absorption peak position"). Find the '
-        'related data set IDs as "Data set ID" at the bottom of the data sets.'
+        help_text='Chemical formula of the compound'
     )
-    select_reference = forms.ModelChoiceField(
-        queryset=models.Reference.objects.all(),
-        required=True,
-        widget=forms.Select(attrs={'class': 'form-control'}),
+    number_of_datasets = forms.IntegerField(
+        initial=1,
+        widget=forms.NumberInput(attrs={'class': 'form-control',
+                                        'min': 1}),
         help_text=''
-        'Select the reference that is associated with the inserted data. If '
-        'the data is unpublished or no reference is applicable, leave empty.')
-    # If set, the reference field becomes readonly.
-    fixed_reference = forms.ModelChoiceField(
-        queryset=models.Reference.objects.all(),
-        required=False,
-        widget=forms.HiddenInput())
-    select_system = forms.ModelChoiceField(
-        queryset=models.System.objects.all(),
-        required=True,
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        help_text=''
-        'Select the system that is associated with the inserted data.')
-    caption = AutoCharField(
-        model=models.Dataset, field='caption',
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        help_text=''
-        'Main description of the data. This can include an explanation of the '
-        'significance of the results.')
-    extraction_method = AutoCharField(
-        label='Data extraction protocol',
-        model=models.Dataset, field='extraction_method',
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        help_text=''
-        'How was the current data obtained? For example, manually extracted '
-        'from a publication, from author, from another database, ...')
+        'Enter the number of properties for this compound. '
+        'For each property, a dataset is created. '
+    )
+
+    # Dataset (Property) level fields
+    # General
     primary_property = forms.ModelChoiceField(
+        required=False,
         queryset=models.Property.objects.all(),
         widget=forms.Select(attrs={'class': 'form-control'}),
         help_text=''
         'Define the primary property of interest (in a figure, this typically '
         'denotes the y-axis). If the property of interest is missing here, '
-        'add it under "Define new property".')
-    primary_unit = forms.ModelChoiceField(
-        queryset=models.Unit.objects.all(),
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-control',
-                                   'disabled': 'true'}),
-        help_text=''
-        'Define the primary unit of interest. For dimensionless physical '
-        'properties, leave empty. If the data is in arbitray units, select '
-        '"a.u." (note that this is different from empty). If the unit of '
-        'interest is missing here, add it under "Define new unit".')
-    primary_property_label = AutoCharField(
-        model=models.Dataset, field='primary_property_label',
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Leave empty if not required'
-        }),
-        help_text=''
-        'If present, this label is used on the y-axis of a figure. Default is '
-        'to use the same name as the physical property.')
-    secondary_property = forms.ModelChoiceField(
-        queryset=models.Property.objects.all(),
-        required=False,
-        label='Secondary property (x-axis)',
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        help_text=''
-        'Define the secondary property of interest (in a figure, this '
-        'typically denotes the x-axis). If the property of interest is '
-        'missing here, add it under "Define new property".')
-    secondary_unit = forms.ModelChoiceField(
-        queryset=models.Unit.objects.all(),
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-control',
-                                   'disabled': 'true'}),
-        help_text=''
-        'Define the secondary unit of interest. If the unit of interest '
-        'missing here, add it under "Define new unit".')
-    secondary_property_label = AutoCharField(
-        model=models.Dataset, field='secondary_property_label',
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Leave empty if not required'
-        }),
-        help_text=''
-        'If present, this label is used on the x-axis of a figure. Default is '
-        'to use the same name as the physical property.')
-    is_figure = forms.BooleanField(
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        required=False,
-        help_text=''
-        'Choose whether the data is more suitably presented as a figure or as '
-        'a table. Especially for a large amount of data points, a figure '
-        'might make more sense. This setting can be easily toggled later.')
-    two_axes = forms.BooleanField(
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        initial=False,
-        required=False,
-        help_text=''
-        'Select this if your data has independent (x) and dependent (y) '
-        'variables.')
-    visible_to_public = forms.BooleanField(
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        initial=True,
-        required=False,
-        help_text=''
-        'Choose whether the data should be initially visible on the website. '
-        'If not, only you can view the data. This setting can be easily '
-        'toggled later.')
+        'add it under "Define new property".'
+    )
     origin_of_data = forms.ChoiceField(
+        required=False,
         initial='is_experimental',
         choices=(
             ('is_experimental', 'experimental'),
@@ -242,22 +118,22 @@ class AddDataForm(forms.Form):
         ),
         widget=forms.RadioSelect(),
         help_text=''
-        'Select whether the origin of data is experimental or theoretical.')
-    dimensionality_of_the_inorganic_component = forms.ChoiceField(
-        initial=models.Dataset.DIMENSIONALITIES[0],
-        choices=(models.Dataset.DIMENSIONALITIES),
-        widget=forms.RadioSelect(),
-        help_text=''
-        'Here the term dimensionality refers to the one typically used in the '
-        'context of organic-inorganic perovskites (a certain arrangement of '
-        'organic and inorganic components). This is not the standard '
-        'definition of the dimensionality of a system (single crystal, '
-        'film, ...). See "sample type" for that.')
+        'Select whether the origin of data is experimental or theoretical.'
+    )
     sample_type = forms.ChoiceField(
+        required=False,
         initial=models.Dataset.SAMPLE_TYPES[0],
         choices=(models.Dataset.SAMPLE_TYPES),
         widget=forms.RadioSelect(),
-        help_text='Select the type of the sample.')
+        help_text='Select the type of the sample.'
+    )
+    crystal_system = forms.ChoiceField(
+        required=False,
+#        initial=models.Subset.CRYSTAL_SYSTEMS[0],
+        choices=(models.Dataset.CRYSTAL_SYSTEMS),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        help_text='Select the crystal system.'
+    )  
     space_group = AutoCharField(
         model=models.Dataset, field='space_group',
         widget=forms.TextInput(attrs={
@@ -265,7 +141,8 @@ class AddDataForm(forms.Form):
             'placeholder': 'Optional'
         }),
         help_text=''
-        'Space group symbol.')
+        'Space group symbol.'
+    )
 
     # Synthesis
     with_synthesis_details = forms.BooleanField(
@@ -393,49 +270,99 @@ class AddDataForm(forms.Form):
         'Additional information not revelant or suitable for the description '
         'part.')
 
-    # Data subset
-    number_of_subsets = forms.CharField(
+    # Subset level fields
+    # General
+    number_of_subsets = forms.IntegerField(
+        required=False,
         initial=1,
         widget=forms.NumberInput(attrs={'class': 'form-control mx-sm-3',
-                                        'min': '1',
+                                        'min': 1,
+                                        'style': 'width:8em'}),
+        help_text='Enter the number of data subgroups.')
+    sub_title = AutoCharField(
+        label='Title',
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+        help_text='Enter the subset title. This will be the chart title.')
+    with_additional_files = forms.BooleanField(
+        required=False, initial=False, widget=forms.HiddenInput())
+    additional_files = forms.FileField(
+        required=False,
+        widget=forms.ClearableFileInput(attrs={'multiple': True}),
+        help_text=''
+        'Upload files containing anything that is relevant to the current '
+        'data (input files to a calculation, image of the sample, ...). '
+        'Multiple files can be selected here.')
+    with_reference = forms.BooleanField(
+        required=False, initial=False, widget=forms.HiddenInput())
+    select_reference = forms.ModelChoiceField(
+        required=False,
+        queryset=models.Reference.objects.all(),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        help_text=''
+        'Select the reference that is associated with the inserted data. If '
+        'the data is unpublished or no reference is applicable, leave empty.')
+    # Property specific fields
+    # Normal properties
+    with_data_for_chart = forms.BooleanField(
+        required=False, initial=False, widget=forms.HiddenInput())
+    with_fixed_property = forms.BooleanField(
+        required=False, initial=False, widget=forms.HiddenInput())
+    number_of_curves = forms.IntegerField(
+        required=False,
+        initial=1,
+        widget=forms.NumberInput(attrs={'class': 'form-control mx-sm-3',
+                                        'min': 1,
                                         'style': 'width:8em'}),
         help_text=''
-        'Enter the number of data subgroups. For each subgroup, one or more '
-        'properties or some other aspect of the experiment/calculation are '
-        'typically fixed (see the help text for "Add fixed property"). In '
-        'case of a figure, each curve is typically considered a separate data '
-        'subset.')
+        'Enter the number of curves in chart.'
+        'This should equal to (number of columns of datapoints - 1).'
+        )
+    x_title = forms.CharField(
+        required=False,
+        label='x title',
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'}),
+        help_text='Enter x-axis title here.')
+    x_unit = forms.CharField(
+        required=False,
+        label='x unit',
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'}),
+        help_text='Enter x-axis unit here.')
+    y_title = forms.CharField(
+        required=False,
+        label="y title",
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'}),
+        help_text='Enter y-axis title here.')
+    y_unit = forms.CharField(
+        required=False,
+        label='y unit',
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'}),
+        help_text='Enter y-axis unit here.')
     import_file_name = forms.CharField(
         required=False, widget=forms.HiddenInput())
-    crystal_system = forms.ChoiceField(
-        required=False,
-#        initial=models.Subset.CRYSTAL_SYSTEMS[0],
-        choices=(models.Subset.CRYSTAL_SYSTEMS),
-        widget=forms.Select(attrs={'class': 'form-control'}),
-        help_text='Select the crystal system.')   
-    subset_label = AutoCharField(
-        label='Label',
-        model=models.Subset, field='label',
-        widget=forms.TextInput(
-            attrs={'class': 'form-control subset-label-class'}),
-        help_text=''
-        'Short description of the data subset (optional). In a figure, this '
-        'information is typically shown in the legend. Not applicable with '
-        'only one data subset set.')
-    subset_datapoints = forms.CharField(
+    datapoints = forms.CharField(
         required=False,
         label='Data points',
         widget=forms.Textarea(
-            attrs={'class': 'form-control subset-datapoints', 'rows': '4',
-                   'placeholder': 'value_1 value_2 ...'}),
+        attrs={'class': 'form-control datapoints', 'rows': '10',
+               'placeholder': 'x y1 y2 ...'}),
         help_text=''
-        'Insert data points here. These may be a single value, a series of '
-        'values, or a series of value pairs. The latter applies when there '
-        'are both primary and secondary properties, in which case the first '
-        'column has values of the secondary property (x-values) and the '
-        'second column corresponds to the primary property (y-values). Note: '
-        'to resize this box, drag from the corner.')
-    # Exceptions
+        'Insert data points here. The first column has value of x-axis'
+        'and each of the following column corresponds to y-axis.')
+    fixed_sign = forms.ChoiceField(
+        required=False,
+        choices=(models.FixedPropertyValue.VALUE_TYPES),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        help_text='Choose the sign.')
+
+    # Atomic structure specific
+    with_data_for_atomic_structure = forms.BooleanField(
+        required=False, initial=False, widget=forms.HiddenInput())
+    import_file_name_atomic = forms.CharField(
+        required=False, widget=forms.HiddenInput())
     lattice_constant_a = forms.CharField(
         label='Lattice constants',
         required=False,
@@ -479,59 +406,72 @@ class AddDataForm(forms.Form):
     atomic_coordinates = forms.CharField(
         required=False,
         widget=forms.Textarea(
-            attrs={'class': 'form-control', 'rows': '3',
+            attrs={'class': 'form-control', 'rows': '10',
                    'placeholder': mark_safe(placeholder_)}),
         help_text=''
         'Enter atomic structure data in any format accepted by JMol. Note: to '
         'resize this box, drag from the corner.')
     geometry_format = forms.CharField(
         required=False, initial='aims', widget=forms.HiddenInput())
-    phase_transition_crystal_system_final = forms.ChoiceField(
-        label='Final crystal system',
-        required=False,
-        initial=models.Subset.CRYSTAL_SYSTEMS[0],
-        choices=(models.Subset.CRYSTAL_SYSTEMS),
-        widget=forms.Select(),
-        help_text='Select the final crystal system.')
-    phase_transition_space_group_initial = forms.CharField(
-        label='Initial space group',
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        help_text=''
-    )
-    phase_transition_space_group_final = forms.CharField(
-        label='Final space group',
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        help_text=''
-    )
-    phase_transition_direction = forms.CharField(
-        label='Direction',
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        help_text=''
-    )
-    phase_transition_hysteresis = forms.CharField(
-        label='Hysteresis',
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        help_text=''
-    )
-    phase_transition_value = forms.CharField(
-        label='Value',
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-control'}),
-        help_text=''
-    )
+    
 
-    # Uploads
-    uploaded_files = forms.FileField(
-        required=False,
-        widget=forms.ClearableFileInput(attrs={'multiple': True}),
-        help_text=''
-        'Upload files containing anything that is relevant to the current '
-        'data (input files to a calculation, image of the sample, ...). '
-        'Multiple files can be selected here.')
+    # Tolerance factor/ Bond length
+    # Tolerance factor
+    t1_shannon = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'},)
+        )
+    t4_shannon = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'})
+        )
+    t1_experimental = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'})
+        )
+    t4_experimental = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'})
+        )
+    t1_averaged = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'})
+        )
+    t4_averaged = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'})
+        )
+    # Bond length
+    element_a = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'})
+        )
+    element_b = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'})
+        )
+    r_avg = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'})
+        )
+    r_shannon = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'})
+        )
+    global_average = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'})
+        )
+    ravg_rglobal = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'})
+        )
+    ravg_rshannon = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control'})
+        )
+    
+
 
     # Qresp related
     qresp_fetch_url = forms.CharField(required=False,
@@ -542,36 +482,260 @@ class AddDataForm(forms.Form):
                                        widget=forms.HiddenInput())
 
     def __init__(self, *args, **kwargs):
-        """Dynamically add subsets and fixed properties."""
+        """Dynamically add datasets and subsets."""
         super().__init__(*args, **kwargs)
         self.label_suffix = ''
         if args:
             for key, value in args[0].items():
-                if key.startswith('subset_datapoints_'):
+                # Dataset level fields
+                # General
+                if key.startswith('primary_property_'):
+                    self.fields[key] = forms.ModelChoiceField(
+                        # required=False,
+                        queryset=models.Property.objects.all(),
+                        initial=value
+                    )
+                elif key.startswith('origin_of_data_'):
+                    self.fields[key] = forms.ChoiceField(
+                        initial=value,
+                        choices=(
+                            ('is_experimental', 'experimental'),
+                            ('is_theoretical', 'theoretical'),
+                        ),
+                        widget=forms.RadioSelect()
+                    )
+                elif key.startswith('sample_type_'):
+                    self.fields[key] = forms.ChoiceField(
+                        initial=value,
+                        choices=(models.Dataset.SAMPLE_TYPES),
+                        widget=forms.RadioSelect()
+                    )
+                elif key.startswith('crystal_system_'):
+                    self.fields[key] = forms.ChoiceField(
+                        # required=False,
+                        initial=value,
+                        choices=(models.Dataset.CRYSTAL_SYSTEMS),
+                        widget=forms.Select()
+                    )
+                elif key.startswith('space_group_'): 
+                    self.fields[key] = AutoCharField(
+                        initial=value,
+                        model=models.Dataset, field='space_group',
+                        widget=forms.TextInput()
+                    )
+
+                # Synthesis
+                elif key.startswith('with_synthesis_details_'):
+                    self.fields[key] = forms.BooleanField(
+                        required=False, initial=value, widget=forms.HiddenInput())
+                elif key.startswith('starting_materials_'):
+                    self.fields[key] = AutoCharField(
+                        model=models.SynthesisMethod, field='starting_materials',
+                        initial=value,
+                        widget=forms.TextInput()
+                    )
+                elif key.startswith('product_'):
+                    self.fields[key] = AutoCharField(
+                        model=models.SynthesisMethod, field='product',
+                        initial=value,
+                        widget=forms.TextInput()
+                    )
+                elif key.startswith('synthesis_description_'):
+                    self.fields[key] = AutoCharField(
+                        label='Description',
+                        widget=forms.Textarea(),
+                        initial=value
+                    )
+                elif key.startswith('synthesis_comment_'):
+                    self.fields[key] = AutoCharField(
+                        label='Comments',
+                        widget=forms.TextInput(),
+                        initial=value
+                    )
+
+                # Experimental
+                elif key.startswith('with_experimental_details_'):
+                    self.fields[key] = forms.BooleanField(
+                        required=False, initial=value, widget=forms.HiddenInput())
+                elif key.startswith('experimental_method_'):
+                    self.fields[key] = AutoCharField(
+                        label='Method',
+                        model=models.ExperimentalDetails, field='method',
+                        initial=value,
+                        widget=forms.TextInput(),
+                    )
+                elif key.startswith('experimental_description_'):
+                    self.fields[key] = AutoCharField(
+                        label='Description',
+                        model=models.ExperimentalDetails, field='description',
+                        widget=forms.Textarea(),
+                        initial=value
+                    )
+                elif key.startswith('experimental_comment_'):
+                    self.fields[key] = AutoCharField(
+                        label='Comments',
+                        widget=forms.TextInput(),
+                        initial=value
+                    )
+
+                # Computational
+                elif key.startswith('with_computational_details_'):
+                    self.fields[key] = forms.BooleanField(
+                        required=False, initial=value, widget=forms.HiddenInput())
+                elif key.startswith('code_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value
+                    )
+                elif key.startswith('level_of_theory_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value
+                    )
+                elif key.startswith('xc_functional_'):
+                    self.fields[key] = AutoCharField(
+                        label='Exchange-correlation functional',
+                        widget=forms.TextInput(),
+                        initial=value
+                    )
+                elif key.startswith('k_point_grid_'):
+                    self.fields[key] = AutoCharField(
+                        label='K-point grid',
+                        widget=forms.TextInput(),
+                        initial=value
+                    )
+                elif key.startswith('level_of_relativity_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value
+                    )
+                elif key.startswith('basis_set_definition_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value
+                    )
+                elif key.startswith('numerical_accuracy_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value
+                    )
+                elif key.startswith('external_repositories_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value
+                    )
+                elif key.startswith('computational_comment_'):
+                    self.fields[key] = AutoCharField(
+                        label='Comments',
+                        widget=forms.TextInput(),
+                        initial=value
+                    )
+                elif key.startswith('number_of_subsets_'):
                     self.fields[key] = forms.CharField(
-                        required=False, widget=forms.Textarea, initial=value)
-                elif key.startswith('subset_label_'):
-                    self.fields[key] = forms.CharField(required=False,
-                                                       initial=value)
+                        initial=value,
+                        widget=forms.NumberInput()
+                    )
+
+
+                # Subset level fields
+                # General
+                elif key.startswith('sub_title_'):
+                    self.fields[key] = AutoCharField(
+                        initial=value,
+                        widget=forms.TextInput(),
+                     )
+                elif key.startswith('with_additonal_files_'):
+                    self.fields[key] = forms.BooleanField(
+                        required=False, 
+                        initial=value, 
+                        widget=forms.HiddenInput())
+                elif key.startswith('additional_files_'):
+                    self.fields[key] = forms.FileField(
+                        required=False,
+                        widget=forms.ClearableFileInput())
+                elif key.startswith('with_reference_'):
+                    self.fields[key] = forms.BooleanField(
+                        required=False, 
+                        initial=value, 
+                        widget=forms.HiddenInput())
+                elif key.startswith('select_reference_'):
+                    self.fields[key] = forms.ModelChoiceField(
+                        required=False,
+                        queryset=models.Reference.objects.all(),
+                        initial=value)
+                # Normal primary properties
+                # Data for chart
+                elif key.startswith('with_data_for_chart_'):
+                    self.fields[key] = forms.BooleanField(
+                        required=False, 
+                        initial=value, 
+                        widget=forms.HiddenInput())
+                elif key.startswith('x_title_'):
+                    self.fields[key] = forms.CharField(
+                        required=False,
+                        initial=value)
+                elif key.startswith('x_unit_'):
+                    self.fields[key] = forms.CharField(
+                        required=False,
+                        initial=value)  
+                elif key.startswith('y_title_'):
+                    self.fields[key] = forms.CharField(
+                        required=False,
+                        initial=value)
+                elif key.startswith('y_unit_'):
+                    self.fields[key] = forms.CharField(
+                        required=False,
+                        initial=value)
+                elif key.startswith('number_of_curves_'):
+                    self.fields[key] = forms.CharField(
+                        required=False,
+                        initial=value,
+                        widget=forms.NumberInput())
+                elif key.startswith('legend_'):
+                    self.fields[key] = forms.CharField(
+                        required=False,
+                        initial=value)
                 elif key.startswith('import_file_name_'):
                     self.fields[key] = forms.CharField(
                         required=False,
                         initial=value,
                         widget=forms.HiddenInput())
-                elif key.startswith('crystal_system_'):
-                    self.fields[key] = forms.ChoiceField(
-                        initial=value,
-                        choices=(models.Subset.CRYSTAL_SYSTEMS),
-                        widget=forms.Select())
+                elif key.startswith('datapoints_'):
+                    self.fields[key] = forms.CharField(
+                        required=False, widget=forms.Textarea, initial=value)
+                # Fixed properties
+                elif key.startswith('with_fixed_property_'):
+                    self.fields[key] = forms.BooleanField(
+                        required=False, 
+                        initial=value, 
+                        widget=forms.HiddenInput())
                 elif key.startswith('fixed_property_'):
                     self.fields[key] = forms.ModelChoiceField(
                         queryset=models.Property.objects.all(), initial=value)
                 elif key.startswith('fixed_unit_'):
                     self.fields[key] = forms.ModelChoiceField(
                         queryset=models.Unit.objects.all(),
-                        initial=value, required=False)
+                        initial=value,
+                        required=False)
+                elif key.startswith('fixed_sign_'):
+                    self.fields[key] = forms.ChoiceField(
+                        required=False,
+                        initial=value,
+                        choices=(models.FixedPropertyValue.VALUE_TYPES),
+                        widget=forms.Select())
                 elif key.startswith('fixed_value_'):
                     self.fields[key] = forms.CharField(initial=value)
+                # Data for atomic structure
+                elif key.startswith('with_data_for_atomic_structure_'):
+                    self.fields[key] = forms.BooleanField(
+                        required=False, 
+                        initial=False, 
+                        widget=forms.HiddenInput())
+                elif key.startswith('import_file_name_atomic_'):
+                    self.fields[key] = forms.CharField(
+                        required=False,
+                        initial=value,
+                        widget=forms.HiddenInput())
                 elif key.startswith('lattice_constant_'):
                     self.fields[key] = forms.CharField(required=False,
                                                        initial=value)
@@ -583,59 +747,129 @@ class AddDataForm(forms.Form):
                         required=False,
                         widget=forms.HiddenInput(),
                         initial=value)
-                elif key.startswith('phase_transition_crystal_system_final_'):
-                    self.fields[key] = forms.ChoiceField(
-                        required=False,
+                # Tolerance factor/ Bond length
+                # Tolerance factor
+                elif key.startswith('t1_shannon_'):
+                    self.fields[key] = AutoCharField(
                         initial=value,
-                        choices=(models.Subset.CRYSTAL_SYSTEMS),
-                        widget=forms.Select())
-                elif key.startswith('phase_transition_space_group_initial_'):
-                    self.fields[key] = forms.CharField(required=False,
-                                                       initial=value)
-                elif key.startswith('phase_transition_space_group_final_'):
-                    self.fields[key] = forms.CharField(required=False,
-                                                       initial=value)
-                elif key.startswith('phase_transition_direction_'):
-                    self.fields[key] = forms.CharField(required=False,
-                                                       initial=value)
-                elif key.startswith('phase_transition_hysteresis_'):
-                    self.fields[key] = forms.CharField(required=False,
-                                                       initial=value)
-                elif key.startswith('phase_transition_value_'):
-                    self.fields[key] = forms.CharField(required=False,
-                                                       initial=value)
+                        widget=forms.TextInput())
+                elif key.startswith('t4_shannon_'):
+                    self.fields[key] = AutoCharField(
+                        initial=value,
+                        widget=forms.TextInput())
+                elif key.startswith('t1_experimental_'):
+                    self.fields[key] = AutoCharField(
+                        initial=value,
+                        widget=forms.TextInput())
+                elif key.startswith('t4_experimental_'):
+                    self.fields[key] = AutoCharField(
+                        initial=value,
+                        widget=forms.TextInput())
+                elif key.startswith('t1_averaged_'):
+                    self.fields[key] = AutoCharField(
+                        initial=value,
+                        widget=forms.TextInput())
+                elif key.startswith('t4_averaged_'):
+                    self.fields[key] = AutoCharField(
+                        initial=value,
+                        widget=forms.TextInput())
+                # Bond length
+                elif key.startswith('element_a_'):
+                    self.fields[key] = AutoCharField(
+                        initial=value,
+                        widget=forms.TextInput())
+                elif key.startswith('element_b_'):
+                    self.fields[key] = AutoCharField(
+                        initial=value,
+                        widget=forms.TextInput())
+                elif key.startswith('r_avg_'):
+                    self.fields[key] = AutoCharField(
+                        initial=value,
+                        widget=forms.TextInput())
+                elif key.startswith('r_shannon_'):
+                    self.fields[key] = AutoCharField(
+                        initial=value,
+                        widget=forms.TextInput())
+                elif key.startswith('global_average_'):
+                    self.fields[key] = AutoCharField(
+                        initial=value,
+                        widget=forms.TextInput())
+                elif key.startswith('ravg_rglobal_'):
+                    self.fields[key] = AutoCharField(
+                        initial=value,
+                        widget=forms.TextInput())
+                elif key.startswith('ravg_rshannon_'):
+                    self.fields[key] = AutoCharField(
+                        initial=value,
+                        widget=forms.TextInput())
+                
 
-    def clean(self):
-        """Set secondary property conditionally required."""
-        data = self.cleaned_data
-        if data.get('two_axes') and not data.get('secondary_property'):
-            self.add_error('secondary_property', 'This field is required.')
-        if not all(map(lambda x: x.isdigit(),
-                       data.get('related_data_sets').split())):
-            self.add_error('related_data_sets',
-                           'This must be a list of space separated integers.')
+
+                
+                
+
+                
+
+
+#     def clean(self):
+#         """Set secondary property conditionally required."""
+#         data = self.cleaned_data
+#         if data.get('two_axes') and not data.get('secondary_property'):
+#             self.add_error('secondary_property', 'This field is required.')
+#         if not all(map(lambda x: x.isdigit(),
+#                        data.get('related_data_sets').split())):
+#             self.add_error('related_data_sets',
+#                            'This must be a list of space separated integers.')
+
+    def get_dataset(self):
+        """Return a list of initial values for dataset."""
+        results = []   
+        for field in self.fields:
+            if field.split('_')[-1].isnumeric() and (not field.split('_')[-2].isnumeric()):
+                results.append([field.split('_')[-1], field, self.fields[field].initial])
+        # results.sort(key=lambda x: x[0].split['_'][-1])
+        return results
+
 
     def get_subset(self):
-        """Return a list of initial values for data subset."""
+        """Return a list of initial values for data subset.
+        Handle legends, reference, fixed property and bond length separtely in functions below.
+        """
         results = []
         for field in self.fields:
-            if field.startswith('subset_datapoints_'):
-                counter = field.split('subset_datapoints_')[1]
-                crystal_system = self.fields[
-                    'crystal_system_' + counter].initial
-                import_file_name = self.fields[
-                    'import_file_name_' + counter].initial
-                if 'subset_label_' + counter in self.fields:
-                    label = self.fields[f'subset_label_{counter}'].initial
-                else:
-                    label = ''
-                datapoints = self.fields[field].initial
-                results.append([counter,
-                                import_file_name,
-                                crystal_system,
-                                label,
-                                datapoints])
+            if len(field.split('_')) > 2 and field.split('_')[-1].isnumeric() and field.split('_')[-2].isnumeric()\
+            and (not field.split('_')[-3].isnumeric()) and 'select_reference_' not in field and 'additional_files_' not in field:
+                results.append([field.split('_')[-2], 
+                                field.split('_')[-1],
+                                field,
+                                self.fields[field].initial])
         return results
+    
+
+    def get_reference(self):
+        """Return selected reference in a list of list."""
+        field_list = [field for field in self.fields if field.startswith('select_reference_')]
+        field_list.sort(key=lambda x: (x.split('_')[-2], x.split('_')[-1]))
+        results = {}
+        for field in field_list:
+            i_dataset = field.split('_')[-2]
+            if i_dataset not in results:
+                results[i_dataset] = [self.fields[field].initial]
+            else:
+                results[i_dataset].append(self.fields[field].initial)
+        results_list = [[k, v] for k, v in results.items()]
+        results_list.sort(key=lambda x: x[0])
+        return [v for k, v in results_list]
+
+
+    def get_legends(self):
+        """Return a list of legends"""
+        results = []
+        for field in self.fields:
+            if field.startswith('legend_'):
+                results.append([field, self.fields[field].initial])
+        return results
+
 
     def get_fixed_properties(self):
         """Return a list of fixed properties and their current values."""
@@ -643,44 +877,30 @@ class AddDataForm(forms.Form):
         for field in self.fields:
             if field.startswith('fixed_property_'):
                 suffix = field.split('fixed_property_')[1]
-                subset, counter = suffix.split('_')
-                results.append([subset, counter,
+                i_dataset, i_subset, counter = suffix.split('_')
+                results.append([i_dataset, i_subset, counter,
                                 self.fields[field].initial,
                                 self.fields[f'fixed_unit_{suffix}'].initial,
+                                self.fields[f'fixed_sign_{suffix}'].initial,
                                 self.fields[f'fixed_value_{suffix}'].initial])
         return results
 
-    def get_lattice_parameters(self):
+
+    def get_bond_lengths(self):
+        """Return a list of bond lengths and their current values."""
         results = []
         for field in self.fields:
-            if field.startswith('lattice_constant_a_'):
-                subset = field.split('lattice_constant_a_')[1]
-                results.append([
-                    subset,
-                    self.fields[f'lattice_constant_a_{subset}'].initial,
-                    self.fields[f'lattice_constant_b_{subset}'].initial,
-                    self.fields[f'lattice_constant_c_{subset}'].initial,
-                    self.fields[f'lattice_constant_alpha_{subset}'].initial,
-                    self.fields[f'lattice_constant_beta_{subset}'].initial,
-                    self.fields[f'lattice_constant_gamma_{subset}'].initial,
-                    self.fields[f'atomic_coordinates_{subset}'].initial,
-                    self.fields[f'geometry_format_{subset}'].initial,
-                ])
+            if field.startswith('element_a_'):
+                suffix = field.split('element_a_')[1];
+                i_dataset, i_subset, counter = suffix.split('_')
+                results.append([i_dataset, i_subset, counter,
+                    self.fields[field].initial,
+                    self.fields[f'element_b_{suffix}'].initial,
+                    self.fields[f'r_avg_{suffix}'].initial,
+                    self.fields[f'r_shannon_{suffix}'].initial,
+                    self.fields[f'global_average_{suffix}'].initial,
+                    self.fields[f'ravg_rglobal_{suffix}'].initial,
+                    self.fields[f'ravg_rshannon_{suffix}'].initial
+                    ])
         return results
 
-    def get_phase_transitions(self):
-        results = []
-        for field in self.fields:
-            if field.startswith('phase_transition_value_'):
-                subset = field.split('phase_transition_value_')[1]
-                p = 'phase_transition'
-                results.append([
-                    subset,
-                    self.fields[f'{p}_crystal_system_final_{subset}'].initial,
-                    self.fields[f'{p}_space_group_initial_{subset}'].initial,
-                    self.fields[f'{p}_space_group_final_{subset}'].initial,
-                    self.fields[f'{p}_direction_{subset}'].initial,
-                    self.fields[f'{p}_hysteresis_{subset}'].initial,
-                    self.fields[f'{p}_value_{subset}'].initial,
-                ])
-        return results

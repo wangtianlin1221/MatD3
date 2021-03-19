@@ -8,6 +8,51 @@
       <h4>Add Data</h4>
     </div>
     <div class="card-body">
+      <!-- ADD NEW PROPERTY -->
+      <div id="new-property-card" class="card mt-3 new-entry-card new-entry-card2" hidden="true">
+        <div class="card-header">
+          Add new property
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <form id="property-form" method="post">
+                {{ property_form.name.label_tag }}
+                {{ property_form.name.help_text|tooltip }}
+                <div class="input-group">
+                  {{ property_form.name }}
+                  <div class="input-group-append">
+                    <button class="btn btn-primary" type="submit">Add</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- ADD NEW UNIT -->
+      <div id="new-unit-card" class="card mt-3 new-entry-card" hidden="true">
+        <div class="card-header">
+          Add new unit
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <form id="unit-form" method="post">
+                {{ unit_form.label.label_tag }}
+                {{ unit_form.label.help_text|tooltip }}
+                <div class="input-group">
+                  {{ unit_form.label }}
+                  <div class="input-group-append">
+                    <button class="btn btn-primary" type="submit">Add</button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div> 
+      </div>
+    
       <!-- ADD NEW REFERENCE -->
       <div id="new-reference-card" class="card mt-3 new-entry-card" hidden="true">
         <div class="card-header">
@@ -80,7 +125,610 @@
         </div>
       </div>
 
+      <!-- ADD NEW RESULTS -->
+      <div class="tab-pane show active" id="results" role="tabpanel">
+        <form method="post" action="{% url 'materials:submit_data' %}" enctype="multipart/form-data">
+          {% csrf_token %}
+          <!-- COMPOUND LEVEL FIELDS-->
+          <div class="form-inline">
+            <div class="form-group">
+              {% input_field main_form.formula %}
+            </div>
+          </div>
+          <br>
+          <div class="form-inline">
+            <div class="form-group">
+              {% input_field main_form.number_of_datasets %}
+            </div>
+          </div>
+          <!-- ADD A NEW DATASET -->
+          <div id="datasets_all"></div>
+
+          {{ main_form.return_url }}
+          {{ main_form.qresp_fetch_url }}
+          {{ main_form.qresp_chart_nr }}
+          {{ main_form.qresp_search_url }}
+          <div class="float-right">
+            <button type="submit" name="submit-results" class="btn btn-primary">
+              Submit
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  
+  <!-- dataset template -->
+  <div class="dataset-template d-none">
+    <br>
+    <div class="card card-item">
+      <div class="card-header"></div>
+      <div class="card-body">
+        <!-- GENERAL INFO OF DATASET-->
+        <div class="card card-item">
+          <div class="card-header">
+            General
+          </div>
+          <div class="card-body card-add-data"> 
+            <div class="form-group col-md-6">
+              {% input_field main_form.primary_property %}
+            </div>
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                {% input_field main_form.origin_of_data %}
+              </div>
+              <div class="form-group col-md-6">
+                {% input_field main_form.sample_type %}
+              </div>          
+              <div class="form-group col-md-6">
+                {{ main_form.crystal_system.label_tag }}
+                {{ main_form.crystal_system.help_text|tooltip }}
+                {{ main_form.crystal_system }}
+              </div>
+              <div class="form-group col-md-6">
+                {% input_field main_form.space_group %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <br>
+        <!-- SYNTHESIS METHOD -->
+        <div class="card card-item">
+          <button class="btn text-left" type="button" id="synthesis-button" style="background:#dce9ff">
+            Synthesis method (click to add)
+          </button>
+          {{ main_form.with_synthesis_details }}
+          <div class="collapse" id="synthesis-body">
+            <div class="card-body card-add-data">
+              <div class="form-row">
+                <div class="form-group col-md-6">
+                  {% input_field main_form.starting_materials %}
+                </div>
+                <div class="form-group col-md-6">
+                  {% input_field main_form.product %}
+                </div>
+              </div>
+              <div class="form-group">
+                {% input_field main_form.synthesis_description %}
+              </div>
+              <div class="form-group">
+                {% input_field main_form.synthesis_comment %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <br>
+        <!-- EXPERIMENTAL DETAILS -->
+        <div class="card card-item">
+          <button class="btn text-left" type="button" id="experimental-button" style="background:#dce9ff">
+            Experimental details (click to add)
+          </button>
+          {{ main_form.with_experimental_details }}
+          <div class="collapse" id="experimental-body">
+            <div class="card-body card-add-data">
+              <div class="form-group">
+                {% input_field main_form.experimental_method %}
+              </div>
+              <div class="form-group">
+                {% input_field main_form.experimental_description %}
+              </div>
+              <div class="form-group">
+                {% input_field main_form.experimental_comment %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <br>
+        <!-- COMPUTATIONAL DETAILS -->
+        <div class="card card-item">
+          <button class="btn text-left" type="button" id="computational-button" style="background:#dce9ff">
+            Computational details (click to add)
+          </button>
+          {{ main_form.with_computational_details }}
+          <div class="collapse" id="computational-body">
+            <div class="card-body card-add-data">
+              <div class="form-row">
+                <div class="form-group col-md-6">
+                  {% input_field main_form.code %}
+                </div>
+                <div class="form-group col-md-6">
+                  {% input_field main_form.level_of_theory %}
+                </div>
+                <div class="form-group col-md-6">
+                  {% input_field main_form.xc_functional %}
+                </div>
+                <div class="form-group col-md-6">
+                  {% input_field main_form.k_point_grid %}
+                </div>
+                <div class="form-group col-md-6">
+                  {% input_field main_form.level_of_relativity %}
+                </div>
+                <div class="form-group col-md-6">
+                  {% input_field main_form.basis_set_definition %}
+                </div>
+                <div class="form-group col-md-6">
+                  {% input_field main_form.numerical_accuracy %}
+                </div>
+                <div class="form-group col-md-6">
+                  {% input_field main_form.external_repositories %}
+                </div>
+              </div>
+              <div class="form-group">
+                {% input_field main_form.computational_comment %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <br>
+        <!-- DATA -->
+        <div class="card card-item">
+          <div class="card-header">
+            Data
+          </div>
+          <div class="card-body card-add-data">
+            <div class="form-inline">
+              <div class="form-group">
+                {{ main_form.number_of_subsets.label_tag }}
+                <span class="ml-2">{{ main_form.number_of_subsets.help_text|tooltip }}</span>
+                {{ main_form.number_of_subsets }}
+              </div>
+            </div>
+            <div id="subsets_all"></div>
+          </div>
+        </div>
+
+        <br>     
+      </div>
+    </div>
+  </div>
+
+  <!-- data subset template -->
+  <div class="subset-template d-none">
+    <br>
+    <div class="card card-subset">
+      <div class="card-header"></div>
+      <div class="card-body">
+        <div class="form-group col-md-6">
+          {% input_field main_form.sub_title %}
+        </div>
+        <!-- ADD DATA FOR CHART -->
+        <div class="card card-item normal-input">
+          <button class="btn text-left" type="button" id="chart-button" style="background:#dce9ff">
+            Data for chart (click to add)
+          </button>
+          {{ main_form.with_data_for_chart }}
+          <div class="collapse" id="chart-body">
+            <div class="card-body card-add-data">
+              <div class="form-row">
+                <div class="col-md-6">
+                  <div class="form-row">
+                    <div class="form-group">
+                      {% input_field main_form.x_title %}
+                    </div>
+                    <div class="form-group">
+                      {% input_field main_form.x_unit %}
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      {% input_field main_form.y_title %}
+                    </div>
+                    <div class="form-group">
+                      {% input_field main_form.y_unit %}
+                    </div>
+                  </div>
+                  <!-- ADD LEGENDS -->
+                  <div class="form-inline">
+                    <div class="form-group">
+                      {{ main_form.number_of_curves.label_tag }}
+                      <span class="ml-2">{{ main_form.number_of_curves.help_text|tooltip }}</span>
+                      {{ main_form.number_of_curves }}
+                    </div>
+                  </div>
+                  <br>
+                  <div class="form-group">
+                    <div class="form-inline">
+                      <div>Legends</div>
+                      <i class="fa fa-question-circle tooltip-container">
+                        <span class="tooltiptext">
+                          Click to add legend for each curve in the chart. For example, if you have 3 columns of y-values, you should add 3 legends.
+                        </span>
+                      </i>
+                    </div>
+                    <br>
+                    <div id="legends_all"></div>
+                  </div>         
+                </div>
+                <div class="col-md-6">
+                  {{ main_form.import_file_name }}
+                  <div class="datapoints-input">
+                    {{ main_form.datapoints.label_tag }}
+                    {{ main_form.datapoints.help_text|tooltip }}
+                    <div class="float-right">
+                      <input type="file" id="import-data-file" class="inputfile import-data-file">
+                      <label for="import-data-file"><i class="fa fa-upload" aria-hidden="true"></i>
+                        Import from file...</label>
+                    </div>
+                    {{ main_form.datapoints }}
+                    <br>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <br>
+        <!-- ADD FIXED PROPERTY -->
+        <div class="card card-item normal-input">
+          <button class="btn text-left" type="button" id="fixed-property-button" style="background:#dce9ff">
+            Fixed properties (click to add)
+          </button>
+          {{ main_form.with_fixed_property }}
+          <div class="collapse" id="fixed-property-body">
+            <div class="card-body card-add-data">
+              <div class="form-group col-md-6">
+                <button type="button" class="btn btn-info add-fixed-property mb-3"
+                        id="id_add_fixed_property">
+                  Add fixed property
+                </button>
+                <i class="fa fa-question-circle fa-2x tooltip-container">
+                  <span class="tooltiptext">Click to define a property that was fixed during the experiment or calculation. For example, if a series of band gaps was measured as a function of pressure and temperature was kept constant for the whole series, the temperature value may be inserted here.</span>
+                </i>
+              </div>
+              <div class="fixed-properties"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- ADD DATA FOR ATOMIC STRUCTURE -->
+        <div class="card card-item atomic-structure-input" hidden="true">
+          <div class="card-header">Atomic structure</div>
+          {{ main_form.with_data_for_atomic_structure }}
+          <div class="card-body card-add-data">
+            <div class="form-row">
+              <div class="col-md-5">
+                {{ main_form.import_file_name_atomic }}
+                <div class="form-group">
+                  {{ main_form.lattice_constant_a.label_tag }}
+                  {{ main_form.lattice_constant_a.help_text|tooltip }}
+                  <div class="float-right">
+                    <input type="file" id="import-lattice-parameters"
+                           class="inputfile import-lattice-parameters">
+                    <label for="import-lattice-parameters"><i class="fa fa-upload" aria-hidden="true"></i>
+                      Import from file...</label>
+                  </div>
+                  <div class="input-group">
+                    {{ main_form.lattice_constant_a }}
+                    {{ main_form.lattice_constant_b }}
+                    {{ main_form.lattice_constant_c }}
+                  </div>
+                </div>
+                <div class="form-group">
+                  {{ main_form.lattice_constant_alpha.label_tag }}
+                  <div class="input-group">
+                    {{ main_form.lattice_constant_alpha }}
+                    {{ main_form.lattice_constant_beta }}
+                    {{ main_form.lattice_constant_gamma }}
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-7">
+                <div class="form-group">
+                  {% input_field main_form.atomic_coordinates %}
+                </div>
+                {{ main_form.geometry_format }}
+              </div>
+            </div>
+          </div>
+        </div>
+        <br>
+        <!-- TOLERANCE FACTOR/ BOND LENGTH -->
+        <div class="card card-item tolerance-bond-input" hidden="true">
+          <div class="card-header">
+            Tolerance factor/ Bond length
+          </div>
+          <div class="card-body card-add-data">
+            <!-- TOLERANCE FACTOR -->
+            <h5><ins>Tolerance factor</ins></h5>
+            <div class="form-row">
+              <div class="col-md-3">
+                <p>Based on Shannon Radii:</p>
+                <div class="form-group">
+                  <label for='id_t1_shannon'>T<sub>Ⅰ</sub></label>
+                  {{ main_form.t1_shannon }}
+                </div>
+                <div class="form-group">
+                  <label for='id_t4_shannon'>T<sub>Ⅳ</sub></label>
+                  {{ main_form.t4_shannon }}
+                </div>
+              </div>
+              <div class="col-md-3">
+                <p>Experimental:</p>
+                <div class="form-group">
+                  <label for='id_t1_experimental'>T<sub>Ⅰ</sub></label>
+                  {{ main_form.t1_experimental }}
+                </div>
+                <div class="form-group">
+                  <label for='id_t4_experimental'>T<sub>Ⅳ</sub></label>
+                  {{ main_form.t4_experimental }}
+                </div>
+              </div>
+              <div class="col-md-3">
+                <p>Averaged:</p>
+                <div class="form-group">
+                  <label for='id_t1_averaged'>T<sub>Ⅰ</sub></label>
+                  {{ main_form.t1_averaged }}
+                </div>
+                <div class="form-group">
+                  <label for='id_t4_averaged'>T<sub>Ⅳ</sub></label>
+                  {{ main_form.t4_averaged }}
+                </div>
+              </div>
+            </div>
+            <br>
+            <!-- BOND LENGTH -->
+            <h5><ins>Bond length</ins></h5>
+            <div class="form-group">
+                <button type="button" class="btn btn-info add-bond-length mb-3"
+                        id="id_add_bond-length">
+                  Add bond length
+                </button>
+                <i class="fa fa-question-circle fa-2x tooltip-container">
+                  <span class="tooltiptext">Click to add a bond length record.</span>
+                </i>
+            </div>
+            <div class="bond-lengths">
+            </div>
+          </div>
+        </div>
+        <!-- ADD ADDITIONAL FILES -->
+        <div class="card card-item">
+<!--           <button class="btn text-left" type="button" id="additional-file-button" style="background:#dce9ff">
+            Additional files (click to add)
+          </button> -->
+          <div class="card-header">Additional files</div>
+          {{ main_form.with_additional_files }}
+<!--           <div class="collapse" id="additional-file-body"> -->
+          <div class="card-body card-add-data">
+            <div class="additional-files">
+              {% input_field main_form.additional_files %}
+              <ul class="fileList"></ul>
+            </div>
+          </div>
+<!--           </div> -->
+        </div>
+        <br>
+        <!-- ADD REFERENCES -->
+        <div class="card card-item">
+<!--           <button class="btn text-left" type="button" id="reference-button" style="background:#dce9ff">
+            References (click to add)
+          </button> -->
+          <div class="card-header">Reference</div>
+          {{ main_form.with_reference }}
+<!--           <div class="collapse" id="reference-body"> -->
+          <div class="card-body card-add-data">
+            <div class="form-group">
+              {% input_field main_form.select_reference %}
+            </div>
+          </div>
+<!--           </div> -->
+        </div>
+      </div>
+    </div>
+  </div>
+ 
+
+  <!-- legend template -->
+  <div class="legend-template d-none input-group">
+    <div class="input-group-prepend">
+      <span class="input-group-text" id="curve_number">Curve 1</span>
+    </div>
+    <input class="form-control" id="id_legend" name="legend" type="text" maxlength="100">
+  </div>
+
+
+  <!-- fixed property template -->
+  <div class="form-row fixed-property-template d-none">
+    <div class="col-md-3 mb-3">
+      <label for="fixed_property">Property</label>
+      <select id="fixed_property" name="fixed_property" placeholder="--select or add--"></select>
+    </div>
+    <div class="col-md-3 mb-3">
+      <label for="fixed_unit">Unit</label>
+      <select id="fixed_unit" name="fixed_unit" placeholder="--select or add--"></select>
+    </div>
+    <div class="col-md-3 mb-3">
+      {{ main_form.fixed_sign.label_tag }}
+      {{ main_form.fixed_sign.help_text|tooltip }}
+      {{ main_form.fixed_sign }}
+    </div>
+    <div class="col-md-3 mb-3">
+      <label for="fixed_value">Fixed value</label>
+      <div class="input-group">
+        <input class="form-control" name="fixed_value" type="text" maxlength="50" required>
+        <div class="input-group-append">
+          <button class="close-fixed-property btn btn-danger fa fa-times" type="button" ></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- bond length template -->
+  <div class="form-row bond-length-template d-none">
+    <div class="form-group col-sm">
+      {% input_field main_form.element_a %}
+    </div>
+    <div class="form-group col-sm">
+      {% input_field main_form.element_b %}
+    </div>
+    <div class="form-group col-sm">
+      {% input_field main_form.r_avg %}
+    </div>
+    <div class="form-group col-sm">
+      {% input_field main_form.r_shannon %}
+    </div>
+    <div class="form-group col-sm">
+      {{ main_form.global_average.label_tag }}
+      {{ main_form.global_average }}
+    </div>
+    <div class="form-group col-sm">
+      <label for="id_ravg_rglobal">Ravg/Rglobal</label>
+      {{ main_form.ravg_rglobal }}
+    </div>
+    <div class="form-group col-sm">
+      <label for="id_ravg_rshannon">Ravg/Rshannon</label>
+      <div class="input-group">
+        <input class="form-control" id="id_ravg_rshannon" name="ravg_rshannon" type="text">
+        <div class="input-group-append">
+          <button class="close-bond-length btn btn-danger fa fa-times" type="button">
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!--             <div class="atomic-structure-input" hidden="true">
+              <div class="form-group">
+                {{ main_form.lattice_constant_a.label_tag }}
+                {{ main_form.lattice_constant_a.help_text|tooltip }}
+                <div class="float-right">
+                  <input type="file" id="import-lattice-parameters"
+                         class="inputfile import-lattice-parameters">
+                  <label for="import-lattice-parameters"><i class="fa fa-upload" aria-hidden="true"></i>
+                    Import from file...</label>
+                </div>
+                <div class="input-group">
+                  {{ main_form.lattice_constant_a }}
+                  {{ main_form.lattice_constant_b }}
+                  {{ main_form.lattice_constant_c }}
+                </div>
+              </div>
+              <div class="form-group">
+                {{ main_form.lattice_constant_alpha.label_tag }}
+                <div class="input-group">
+                  {{ main_form.lattice_constant_alpha }}
+                  {{ main_form.lattice_constant_beta }}
+                  {{ main_form.lattice_constant_gamma }}
+                </div>
+              </div>
+              <div class="form-group">
+                {% input_field main_form.atomic_coordinates %}
+              </div>
+              {{ main_form.geometry_format }}
+            </div>
+            <br>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div> -->
+
+
+
+
+
+
+      <!-- ADD NEW REFERENCE -->
+      <!--
+      <div id="new-reference-card" class="card mt-3 new-entry-card" hidden="true">
+        <div class="card-header">
+          Add new reference
+        </div>
+        <div class="card-body">
+          <form id="reference-form" method="post">
+            <div class="card authors-card">
+              <div class="card-header">
+                Authors
+              </div>
+              <div class="card-body">
+                <div class="form-row">
+                  <div class="col-md-3 mb-3">
+                    <label for="fixed_property">First name</label>
+                    <div id="first-names">
+                      <input type="text" class="form-control" hidden="true">
+                    </div>
+                  </div>
+                  <div class="col-md-3 mb-3">
+                    <label for="fixed_unit">Last name</label>
+                    <div id="last-names">
+                      <input type="text" class="form-control" hidden="true">
+                    </div>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label for="fixed_value">Institution</label>
+                    <div id="institutions">
+                      <div class="input-group" hidden="true">
+                        <input type="text" class="form-control">
+                        <div class="input-group-append">
+                          <button class="btn btn-danger fa fa-times" type="button" ></button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="float-right">
+                  <button id="add-more-authors-btn" class="btn btn-info" type="button">
+                    Add more authors
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group col-md-6">
+                {% input_field reference_form.title %}
+              </div>
+              <div class="form-group col-md-6">
+                {% input_field reference_form.journal %}
+              </div>
+              <div class="form-group col-md-6">
+                {% input_field reference_form.vol %}
+              </div>
+              <div class="form-group col-md-6">
+                {% input_field reference_form.pages_start %}
+              </div>
+              <div class="form-group col-md-6">
+                {% input_field reference_form.pages_end %}
+              </div>
+              <div class="form-group col-md-6">
+                {% input_field reference_form.year %}
+              </div>
+              <div class="form-group col-md-6">
+                {% input_field reference_form.doi_isbn %}
+              </div>
+            </div>
+            <button class="btn btn-primary" type="submit">Submit</button>
+          </form>
+        </div>
+      </div>
+    -->
+
       <!-- ADD NEW SYSTEM -->
+      <!--
       <div id="new-system-card" class="card mt-3 new-entry-card" hidden="true">
         <div class="card-header">
           Add new system
@@ -111,9 +759,10 @@
           </form>
         </div>
       </div>
+    -->
 
       <!-- ADD NEW PROPERTY -->
-      <div id="new-property-card" class="card mt-3 new-entry-card new-entry-card2" hidden="true">
+<!--       <div id="new-property-card" class="card mt-3 new-entry-card new-entry-card2" hidden="true">
         <div class="card-header">
           Add new property
         </div>
@@ -133,9 +782,10 @@
             </div>
           </div>
         </div>
-      </div>
+      </div> -->
 
       <!-- ADD NEW UNIT -->
+      <!--
       <div id="new-unit-card" class="card mt-3 new-entry-card" hidden="true">
         <div class="card-header">
           Add new unit
@@ -155,16 +805,17 @@
               </form>
             </div>
           </div>
-        </div>
+        </div> 
       </div>
+    -->
 
       <!-- ADD NEW RESULTS -->
-      <div class="tab-pane show active" id="results" role="tabpanel">
+<!--       <div class="tab-pane show active" id="results" role="tabpanel">
         <form method="post" action="{% url 'materials:submit_data' %}"
               enctype="multipart/form-data">
-          {% csrf_token %}
+          {% csrf_token %} -->
           <!-- GENERAL -->
-          <div class="card card-item">
+          <!-- <div class="card card-item">
             <div class="card-header">
               General
             </div>
@@ -248,135 +899,10 @@
             </div>
           </div>
 
-          <br>
-
-          <!-- SYNTHESIS METHOD -->
-          <div class="card card-item">
-            <button class="btn text-left" data-toggle="collapse" type="button"
-                    id="synthesis-button" data-target="#synthesis-body"
-                    style="background:#dce9ff">
-              Synthesis method (click to add)
-            </button>
-            {{ main_form.with_synthesis_details }}
-            <div class="collapse" id="synthesis-body">
-              <div class="card-body card-add-data">
-                <div class="form-row">
-                  <div class="form-group col-md-6">
-                    {% input_field main_form.starting_materials %}
-                  </div>
-                  <div class="form-group col-md-6">
-                    {% input_field main_form.product %}
-                  </div>
-                </div>
-                <div class="form-group">
-                  {% input_field main_form.synthesis_description %}
-                </div>
-                <div class="form-group">
-                  {% input_field main_form.synthesis_comment %}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <br>
-
-          <!-- EXPERIMENTAL DETAILS -->
-          <div class="card card-item">
-            <button class="btn text-left" data-toggle="collapse" type="button"
-                    id="experimental-button" data-target="#experimental-body"
-                    style="background:#dce9ff">
-              Experimental details (click to add)
-            </button>
-            {{ main_form.with_experimental_details }}
-            <div class="collapse" id="experimental-body">
-              <div class="card-body card-add-data">
-                <div class="form-group">
-                  {% input_field main_form.experimental_method %}
-                </div>
-                <div class="form-group">
-                  {% input_field main_form.experimental_description %}
-                </div>
-                <div class="form-group">
-                  {% input_field main_form.experimental_comment %}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <br>
-
-          <!-- COMPUTATIONAL DETAILS -->
-          <div class="card card-item">
-            <button class="btn text-left" data-toggle="collapse" type="button"
-                    id="computational-button" data-target="#computational-body"
-                    style="background:#dce9ff">
-              Computational details (click to add)
-            </button>
-            {{ main_form.with_computational_details }}
-            <div class="collapse" id="computational-body">
-              <div class="card-body card-add-data">
-                <div class="form-row">
-                  <div class="form-group col-md-6">
-                    {% input_field main_form.code %}
-                  </div>
-                  <div class="form-group col-md-6">
-                    {% input_field main_form.level_of_theory %}
-                  </div>
-                  <div class="form-group col-md-6">
-                    {% input_field main_form.xc_functional %}
-                  </div>
-                  <div class="form-group col-md-6">
-                    {% input_field main_form.k_point_grid %}
-                  </div>
-                  <div class="form-group col-md-6">
-                    {% input_field main_form.level_of_relativity %}
-                  </div>
-                  <div class="form-group col-md-6">
-                    {% input_field main_form.basis_set_definition %}
-                  </div>
-                  <div class="form-group col-md-6">
-                    {% input_field main_form.numerical_accuracy %}
-                  </div>
-                  <div class="form-group col-md-6">
-                    {% input_field main_form.external_repositories %}
-                  </div>
-                </div>
-                <div class="form-group">
-                  {% input_field main_form.computational_comment %}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <br>
-
-          <!-- DATA -->
-          <div class="card card-item">
-            <div class="card-header">
-              Data
-            </div>
-            <div class="card-body card-add-data">
-              <div class="form-inline">
-                <div class="form-group">
-                  {{ main_form.number_of_subsets.label_tag }}
-                  <span class="ml-2">{{ main_form.number_of_subsets.help_text|tooltip }}</span>
-                  {{ main_form.number_of_subsets }}
-                </div>
-                <input type="file" id="import-all-data" class="inputfile">
-                <label for="import-all-data"><i class="fa fa-upload" aria-hidden="true"></i>
-                  Import all from file...</label>
-                <i class="fa fa-question-circle tooltip-container ml-2">
-                  <span class="tooltiptext">Select to import all data (all subsets) from a single file. Use the ampersand ("&") as a delimiter between different data subsets.</span>
-                </i>
-              </div>
-              <div id="data-subset"></div>
-            </div>
-          </div>
-
-          <br>
+          <br>  -->
 
           <!-- ADDITIONAL DATA -->
-          <div class="card card-item">
+<!--           <div class="card card-item">
             <div class="card-header">
               Additional data
             </div>
@@ -385,25 +911,9 @@
             </div>
           </div>
 
-          <br>
-
-          {{ main_form.return_url }}
-          {{ main_form.qresp_fetch_url }}
-          {{ main_form.qresp_chart_nr }}
-          {{ main_form.qresp_search_url }}
-          <div class="float-right">
-            <button type="submit" name="submit-results" class="btn btn-primary">
-              Submit
-            </button>
-          </div>
-
-        </form>
-      </div>
-    </div>
-  </div>
-
+          <br> -->
   <!-- data subset template -->
-  <div class="data-subset-template d-none">
+  <!-- <div class="data-subset-template d-none">
     <br>
     <div class="card card-subset">
       <div class="card-header"></div>
@@ -501,11 +1011,11 @@
         </div>
       </div>
     </div>
-  </div>
+  </div> -->
   <!-- end template -->
 
   <!-- fixed property template -->
-  <div class="form-row fixed-property-template d-none">
+<!--   <div class="form-row fixed-property-template d-none">
     <div class="col-md-3 mb-3">
       <label for="fixed_property">Property</label>
       <select id="fixed_property" name="fixed_property" placeholder="--select or add--"></select>
@@ -523,64 +1033,87 @@
         </div>
       </div>
     </div>
-  </div>
-  <!-- end template -->
+  </div> -->
+  <!-- end template -->            
+
+
 {% endblock %}
+
 
 {% block script %}
   {% load static %}
   <script src="{% static 'materials/javascript/selectize.js' %}"></script>
   <script>
    // Initial values for selectize elements
-   let initial_reference = '{{ main_form.select_reference.value }}';
-   let initial_system = '{{ main_form.select_system.value }}';
-   let initial_primary_property = '{{ main_form.primary_property.value }}';
-   let initial_primary_unit = '{{ main_form.primary_unit.value }}';
-   let initial_secondary_property = '{{ main_form.secondary_property.value }}';
-   let initial_secondary_unit = '{{ main_form.secondary_unit.value }}';
+   // let initial_reference = '{{ main_form.select_reference.value }}';
+   // let initial_primary_property = '{{ main_form.primary_property.value }}';
+   // let initial_primary_unit = '{{ main_form.primary_unit.value }}';
+  </script>
+  <script>
+    // Initial values for primary property
+    let initial_primary_property = [];
+    {% for i, name, value in main_form.get_dataset %}
+    {% if 'primary_property_' in name %}
+    initial_primary_property.push('{{ value|escapejs }}');
+    {% endif %}
+    {% endfor %}
+
+    // Initial values for reference
+    let initial_reference = [];
+    {% for value_list in main_form.get_reference %}
+    let temp_list = [];
+    {% for value in value_list %}
+    temp_list.push('{{ value|escapejs }}');
+    {% endfor %}
+    initial_reference.push(temp_list);
+    {% endfor %}
   </script>
   <script src="{% static 'materials/javascript/add_data.js' %}"></script>
   <script>
+    // Prefill datasets from a previous instance of the form
+    document.getElementById('id_number_of_subsets').value = 1;
+    {% for i_dataset, name, value in main_form.get_dataset %}
+      {% if 'origin_of_data_' in name %}
+        {% if value == 'is_experimental' %}
+        document.getElementById('id_origin_of_data_0_{{ i_dataset }}').checked = true;
+        {% else %}
+        document.getElementById('id_origin_of_data_1_{{ i_dataset }}').checked = true;
+        {% endif %}
+      {% elif 'sample_type_' in name %}
+      document.getElementById('id_sample_type_{{ value }}_{{ i_dataset }}').checked = true;
+      {% elif 'crystal_system_' in name %}
+      document.getElementById('id_{{ name }}').value = '{{ value|escapejs }}';
+      {% elif 'number_of_subsets_' in name %}
+      document.getElementById('id_{{ name }}').value = '{{ value|escapejs }}';
+      document.getElementById('id_{{ name }}').dispatchEvent(new Event('change'));
+      {% else %}
+      document.getElementById('id_{{ name }}').value = '{{ value|escapejs }}';
+      {% endif %}
+    {% endfor %}
+  </script>
+  <script>
    // Prefill the data subsets from a previous instance of the form
-   {% for name_counter, import_file_name, crystal_system, label, values in main_form.get_subset %}
-   document.getElementById(
-     'id_import_file_name_{{ name_counter }}').value = '{{ import_file_name|escapejs }}';
-   document.getElementById(
-     'id_crystal_system_{{ crystal_system }}_{{ name_counter }}').checked = true;
-   document.getElementById(
-     'id_subset_label_{{ name_counter }}').value = '{{ label|escapejs }}';
-   document.getElementById(
-     'id_subset_datapoints_{{ name_counter }}').value = '{{ values|escapejs }}';
+   {% for i_dataset, i_subset, name, value in main_form.get_subset %}
+   document.getElementById('id_{{ name }}').value = '{{ value|escapejs }}'
+   {% if 'number_of_curves_' in name %}
+   document.getElementById('id_{{ name }}').dispatchEvent(new Event('change'));
+   {% endif %}
    {% endfor %}
+
+   // Prefill legends from a previous instance of the form
+   {% for name, value in main_form.get_legends %}
+   document.getElementById('id_{{ name }}').value = '{{ value|escapejs }}';
+   {% endfor %}
+
    // Prefill fixed properties from a previous instance of the form
-   {% for subset_counter, name_counter, prop, unit, value in main_form.get_fixed_properties %}
-   add_fixed_property({{ subset_counter }}, {{ name_counter }},
-                      '{{ prop|escapejs }}', '{{ unit|escapejs }}', '{{ value|escapejs }}');
+   {% for i_dataset, i_subset, counter, prop, unit, sign, value in main_form.get_fixed_properties %}
+   add_fixed_property({{ i_dataset }}, {{ i_subset }}, {{ counter }}, '{{ prop|escapejs }}', 
+                     '{{ unit|escapejs }}', '{{ sign|escapejs }}', '{{ value|escapejs }}');
    {% endfor %}
-  </script>
-  <script>
-   // Prefill atomic structure from a previous instance of the form
-   {% for subset_counter, a, b, c, alpha, beta, gamma, coordinates, geometry_format in main_form.get_lattice_parameters %}
-   $('#id_lattice_constant_a_{{ subset_counter }}').val('{{ a|escapejs }}');
-   $('#id_lattice_constant_b_{{ subset_counter }}').val('{{ b|escapejs }}');
-   $('#id_lattice_constant_c_{{ subset_counter }}').val('{{ c|escapejs }}');
-   $('#id_lattice_constant_alpha_{{ subset_counter }}').val('{{ alpha|escapejs }}');
-   $('#id_lattice_constant_beta_{{ subset_counter }}').val('{{ beta|escapejs }}');
-   $('#id_lattice_constant_gamma_{{ subset_counter }}').val('{{ gamma|escapejs }}');
-   $('#id_atomic_coordinates_{{ subset_counter }}').val('{{ coordinates|escapejs }}');
-   $('#id_geometry_format_{{ subset_counter }}').val('{{ geometry_format|escapejs }}');
-   {% endfor %}
-  </script>
-  <script>
-   // Prefill from a previous instance of the form
-   {% for subset_counter, cs_f, sg_i, sg_f, dir, hysteresis, value in main_form.get_phase_transitions %}
-   document.getElementById('id_phase_transition_crystal_system_final_{{ cs_f }}_{{ subset_counter }}')
-           .checked = true;
-   $('#id_phase_transition_space_group_initial_{{ subset_counter }}').val('{{ sg_i|escapejs }}');
-   $('#id_phase_transition_space_group_final_{{ subset_counter }}').val('{{ sg_f|escapejs }}');
-   $('#id_phase_transition_direction_{{ subset_counter }}').val('{{ dir|escapejs }}');
-   $('#id_phase_transition_hysteresis_{{ subset_counter }}').val('{{ hysteresis|escapejs }}');
-   $('#id_phase_transition_value_{{ subset_counter }}').val('{{ value|escapejs }}');
+
+   // Prefill bond lengths from a previous instance of the form
+   {% for i_dataset, i_subset, counter, element_a, element_b, r_avg, r_shannon, global_average, ravg_rglobal, ravg_rshannon in main_form.get_bond_lengths %}
+   add_bond_length({{ i_dataset }}, {{ i_subset }}, {{ counter }}, '{{ element_a|escapejs }}', '{{ element_b|escapejs }}', '{{ r_avg|escapejs }}', '{{ r_shannon|escapejs }}', '{{ global_average|escapejs }}', '{{ ravg_rglobal|escapejs }}', '{{ ravg_rshannon|escapejs }}');
    {% endfor %}
   </script>
 {% endblock %}

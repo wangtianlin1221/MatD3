@@ -41,19 +41,19 @@ class ReferenceSerializer(serializers.ModelSerializer):
         )
 
 
-class SystemSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = models.System
-        fields = (
-            'pk',
-            'compound_name',
-            'formula',
-            'group',
-            'organic',
-            'inorganic',
-            'last_update',
-            'description',
-        )
+# class SystemSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = models.System
+#         fields = (
+#             'pk',
+#             'compound_name',
+#             'formula',
+#             'group',
+#             'organic',
+#             'inorganic',
+#             'last_update',
+#             'description',
+#         )
 
 
 class PropertySerializer(serializers.ModelSerializer):
@@ -135,105 +135,105 @@ class ExperimentalSerializer(BaseSerializer):
         )
 
 
-class NumericalValueSerializer(BaseSerializer):
-    qualifier = serializers.CharField(source='get_qualifier_display')
+# class NumericalValueSerializer(BaseSerializer):
+#     qualifier = serializers.CharField(source='get_qualifier_display')
 
-    class Meta:
-        model = models.NumericalValue
-        fields = (
-            'qualifier',
-            'formatted',
-        )
-
-
-class DatapointSerializer(BaseSerializer):
-    values = NumericalValueSerializer(many=True)
-
-    class Meta:
-        model = models.Datapoint
-        fields = (
-            'values',
-            )
+#     class Meta:
+#         model = models.NumericalValue
+#         fields = (
+#             'qualifier',
+#             'formatted',
+#         )
 
 
-class FixedValueSerializer(BaseSerializer):
-    class Meta:
-        model = models.NumericalValueFixed
-        depth = 1
-        fields = (
-            'physical_property',
-            'unit',
-            'subset',
-            'error',
-            'upper_bound',
-            'formatted',
-            )
+# class DatapointSerializer(BaseSerializer):
+#     values = NumericalValueSerializer(many=True)
+
+#     class Meta:
+#         model = models.Datapoint
+#         fields = (
+#             'values',
+#             )
 
 
-class SubsetSerializer(BaseSerializer):
-    crystal_system = serializers.CharField(source='get_crystal_system_display')
-    datapoints = DatapointSerializer(many=True)
-    fixed_values = FixedValueSerializer(many=True)
-
-    class Meta:
-        model = models.Subset
-        depth = 1
-        fields = (
-            'pk',
-            'label',
-            'crystal_system',
-            'fixed_values',
-            'datapoints',
-        )
+# class FixedValueSerializer(BaseSerializer):
+#     class Meta:
+#         model = models.NumericalValueFixed
+#         depth = 1
+#         fields = (
+#             'physical_property',
+#             'unit',
+#             'subset',
+#             'error',
+#             'upper_bound',
+#             'formatted',
+#             )
 
 
-class DatasetSerializer(BaseSerializer):
-    sample_type = serializers.CharField(source='get_sample_type_display')
-    subsets = SubsetSerializer(many=True)
+# class SubsetSerializer(BaseSerializer):
+#     crystal_system = serializers.CharField(source='get_crystal_system_display')
+#     datapoints = DatapointSerializer(many=True)
+#     fixed_values = FixedValueSerializer(many=True)
 
-    class Meta:
-        model = models.Dataset
-        depth = 1
-        fields = BaseSerializer.Meta.fields + (
-            'pk',
-            'caption',
-            'system',
-            'primary_property',
-            'primary_unit',
-            'secondary_property',
-            'secondary_unit',
-            'reference',
-            'visible',
-            'is_experimental',
-            'dimensionality',
-            'sample_type',
-            'extraction_method',
-            'representative',
-            'linked_to',
-            'verified_by',
-            'computational',
-            'synthesis',
-            'experimental',
-            'subsets',
-            'space_group',
-        )
+#     class Meta:
+#         model = models.Subset
+#         depth = 1
+#         fields = (
+#             'pk',
+#             'label',
+#             'crystal_system',
+#             'fixed_values',
+#             'datapoints',
+#         )
 
 
-class DatasetSerializerSummary(serializers.ModelSerializer):
-    sample_type = serializers.CharField(source='get_sample_type_display')
+# class DatasetSerializer(BaseSerializer):
+#     sample_type = serializers.CharField(source='get_sample_type_display')
+#     subsets = SubsetSerializer(many=True)
 
-    class Meta:
-        model = models.Dataset
-        fields = (
-            'pk',
-            'caption',
-            'system',
-            'primary_property',
-            'primary_unit',
-            'secondary_property',
-            'secondary_unit',
-            'reference',
-            'is_experimental',
-            'dimensionality',
-            'sample_type',
-        )
+#     class Meta:
+#         model = models.Dataset
+#         depth = 1
+#         fields = BaseSerializer.Meta.fields + (
+#             'pk',
+#             'caption',
+#             'system',
+#             'primary_property',
+#             'primary_unit',
+#             'secondary_property',
+#             'secondary_unit',
+#             'reference',
+#             'visible',
+#             'is_experimental',
+#             'dimensionality',
+#             'sample_type',
+#             'extraction_method',
+#             'representative',
+#             'linked_to',
+#             'verified_by',
+#             'computational',
+#             'synthesis',
+#             'experimental',
+#             'subsets',
+#             'space_group',
+#         )
+
+
+# class DatasetSerializerSummary(serializers.ModelSerializer):
+#     sample_type = serializers.CharField(source='get_sample_type_display')
+
+#     class Meta:
+#         model = models.Dataset
+#         fields = (
+#             'pk',
+#             'caption',
+#             'system',
+#             'primary_property',
+#             'primary_unit',
+#             'secondary_property',
+#             'secondary_unit',
+#             'reference',
+#             'is_experimental',
+#             'dimensionality',
+#             'sample_type',
+#         )

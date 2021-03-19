@@ -48,7 +48,7 @@ class BaseAdmin(BaseMixin, nested_admin.NestedModelAdmin):
         formset.save_m2m()
 
 
-admin.site.register(models.System)
+admin.site.register(models.Compound)
 admin.site.register(models.Reference)
 admin.site.register(models.Author)
 
@@ -112,56 +112,35 @@ class ComputationalAdmin(BaseAdmin):
 admin.site.register(models.ComputationalDetails, ComputationalAdmin)
 
 
-class SymbolInline(BaseMixin, nested_admin.NestedStackedInline):
-    model = models.Symbol
-    extra = 0
-    verbose_name_plural = ''
-    fields = ['value']
+# class NumericalValueInline(BaseMixin, nested_admin.NestedTabularInline):
+#     model = models.NumericalValue
+#     extra = 0
+#     verbose_name_plural = ''
+#     fields = ['qualifier', 'value_type', 'value']
+#     inlines = [ErrorInline, UpperBoundInline]
 
 
-class ErrorInline(BaseMixin, nested_admin.NestedStackedInline):
-    model = models.Error
-    extra = 0
-    verbose_name_plural = ''
-    fields = ['value']
+# class DatapointInline(BaseMixin, nested_admin.NestedStackedInline):
+#     model = models.Datapoint
+#     extra = 0
+#     verbose_name_plural = ''
+#     fields = ['id']
+#     inlines = [SymbolInline, NumericalValueInline]
 
 
-class UpperBoundInline(BaseMixin, nested_admin.NestedStackedInline):
-    model = models.UpperBound
-    extra = 0
-    verbose_name_plural = ''
-    fields = ['value']
+# class NumericalValueFixedForm(forms.ModelForm):
+#     """Needed to make the error field non-mandatory."""
+#     error = forms.FloatField(required=False)
+#     upper_bound = forms.FloatField(required=False)
 
 
-class NumericalValueInline(BaseMixin, nested_admin.NestedTabularInline):
-    model = models.NumericalValue
-    extra = 0
-    verbose_name_plural = ''
-    fields = ['qualifier', 'value_type', 'value']
-    inlines = [ErrorInline, UpperBoundInline]
-
-
-class DatapointInline(BaseMixin, nested_admin.NestedStackedInline):
-    model = models.Datapoint
-    extra = 0
-    verbose_name_plural = ''
-    fields = ['id']
-    inlines = [SymbolInline, NumericalValueInline]
-
-
-class NumericalValueFixedForm(forms.ModelForm):
-    """Needed to make the error field non-mandatory."""
-    error = forms.FloatField(required=False)
-    upper_bound = forms.FloatField(required=False)
-
-
-class NumericalValueFixedInline(nested_admin.NestedTabularInline):
-    model = models.NumericalValueFixed
-    form = NumericalValueFixedForm
-    extra = 0
-    verbose_name_plural = 'Fixed parameters'
-    fields = ('physical_property', 'value_type', 'value', 'error',
-              'upper_bound', 'unit')
+# class NumericalValueFixedInline(nested_admin.NestedTabularInline):
+#     model = models.NumericalValueFixed
+#     form = NumericalValueFixedForm
+#     extra = 0
+#     verbose_name_plural = 'Fixed parameters'
+#     fields = ('physical_property', 'value_type', 'value', 'error',
+#               'upper_bound', 'unit')
 
 
 class SynthesisInline(BaseMixin, nested_admin.NestedStackedInline):
@@ -185,11 +164,16 @@ class ComputationalInline(BaseMixin, nested_admin.NestedStackedInline):
     extra = 0
 
 
-class SubsetInline(BaseMixin, nested_admin.NestedStackedInline):
-    model = models.Subset
+class LatticeConstInline(BaseMixin, nested_admin.NestedStackedInline):
+    model = models.LatticeConstant
+    fields = [f.name for f in models.LatticeConstant._meta.local_fields]
     extra = 0
-    fields = [f.name for f in models.Subset._meta.local_fields]
-    inlines = [NumericalValueFixedInline]
+
+
+class AtomicCoordInline(BaseMixin, nested_admin.NestedStackedInline):
+    model = models.AtomicCoordinate
+    fields = [f.name for f in models.AtomicCoordinate._meta.local_fields]
+    extra = 0 
 
 
 class FilesInline(BaseMixin, nested_admin.NestedStackedInline):
@@ -197,20 +181,24 @@ class FilesInline(BaseMixin, nested_admin.NestedStackedInline):
     fields = [f.name for f in models.AdditionalFile._meta.local_fields]
     extra = 0
 
+class SubsetInline(BaseMixin, nested_admin.NestedStackedInline):
+    model = models.Subset
+    extra = 0
+    fields = [f.name for f in models.Subset._meta.local_fields]
+    inlines = [LatticeConstInline, AtomicCoordInline, FilesInline]
 
 class DatasetAdmin(BaseAdmin):
-    list_display = ('id', 'primary_property', 'caption', 'created_by',
+    list_display = ('id', 'primary_property', 'created_by',
                     'updated_by', 'updated')
     list_filter = ('updated',)
     ordering = ('-updated',)
-    fields = ([f.name for f in models.Dataset._meta.local_fields] +
-              ['linked_to'])
+    fields = ([f.name for f in models.Dataset._meta.local_fields])
     inlines = (SynthesisInline, ExperimentalInline, ComputationalInline,
-               SubsetInline, FilesInline)
-    filter_horizontal = ['linked_to']
+               SubsetInline)
+    # filter_horizontal = ['linked_to']
 
-    def view_on_site(self, obj):
-        return reverse('materials:dataset', kwargs={'pk': obj.pk})
+    # def view_on_site(self, obj):
+    #     return reverse('materials:dataset', kwargs={'pk': obj.pk})
 
 
 admin.site.register(models.Dataset, DatasetAdmin)
