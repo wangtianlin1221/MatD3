@@ -76,6 +76,13 @@ class AddUnitForm(forms.Form):
         help_text='Label of the unit')
 
 
+class AddSpaceGroupForm(forms.Form):
+    name = forms.CharField(
+        widget=forms.TextInput(attrs={'class': 'form-control', 'id': 'id_space_group_name'}),
+        max_length=100,
+        help_text='Name of space group') 
+
+
 class AddDataForm(forms.Form):
     """Main form for submitting data."""
 
@@ -134,14 +141,11 @@ class AddDataForm(forms.Form):
         widget=forms.Select(attrs={'class': 'form-control'}),
         help_text='Select the crystal system.'
     )  
-    space_group = AutoCharField(
-        model=models.Dataset, field='space_group',
-        widget=forms.TextInput(attrs={
-            'class': 'form-control',
-            'placeholder': 'Optional'
-        }),
-        help_text=''
-        'Space group symbol.'
+    space_group = forms.ModelChoiceField(
+        required=False,
+        queryset=models.SpaceGroup.objects.all(),
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        help_text='Choose or add a space group.'
     )
 
     # Synthesis
@@ -415,63 +419,121 @@ class AddDataForm(forms.Form):
         required=False, initial='aims', widget=forms.HiddenInput())
     
 
-    # Tolerance factor/ Bond length
-    # Tolerance factor
-    t1_shannon = AutoCharField(
+    # Tolerance factor related parameters
+    # Shannon ironic radii
+    element_I = AutoCharField(
         widget=forms.TextInput(
-            attrs={'class': 'form-control'},)
+            attrs={'class': 'form-control', 'placeholder': 'element'})
         )
-    t4_shannon = AutoCharField(
+    charge_I = AutoCharField(
         widget=forms.TextInput(
-            attrs={'class': 'form-control'})
+            attrs={'class': 'form-control', 'placeholder': 'charge'})
         )
-    t1_experimental = AutoCharField(
+    coord_I = AutoCharField(
         widget=forms.TextInput(
-            attrs={'class': 'form-control'})
+            attrs={'class': 'form-control', 'placeholder': 'coordination'})
         )
-    t4_experimental = AutoCharField(
+    spin_state_I = forms.ChoiceField(
+        required=False,
+        initial=models.ShannonRadiiTable.SPIN_STATES[0],
+        choices=(models.ShannonRadiiTable.SPIN_STATES),
+        widget=forms.Select(attrs={'class': 'form-control'})
+        )
+    element_II = AutoCharField(
         widget=forms.TextInput(
-            attrs={'class': 'form-control'})
+            attrs={'class': 'form-control', 'placeholder': 'element'})
         )
-    t1_averaged = AutoCharField(
+    charge_II = AutoCharField(
         widget=forms.TextInput(
-            attrs={'class': 'form-control'})
+            attrs={'class': 'form-control', 'placeholder': 'charge'})
         )
-    t4_averaged = AutoCharField(
+    coord_II = AutoCharField(
         widget=forms.TextInput(
-            attrs={'class': 'form-control'})
+            attrs={'class': 'form-control', 'placeholder': 'coordination'})
         )
-    # Bond length
-    element_a = AutoCharField(
+    spin_state_II = forms.ChoiceField(
+        required=False,
+        initial=models.ShannonRadiiTable.SPIN_STATES[0],
+        choices=(models.ShannonRadiiTable.SPIN_STATES),
+        widget=forms.Select(attrs={'class': 'form-control'})
+        )
+    element_IV = AutoCharField(
         widget=forms.TextInput(
-            attrs={'class': 'form-control'})
+            attrs={'class': 'form-control', 'placeholder': 'element'})
         )
-    element_b = AutoCharField(
+    charge_IV = AutoCharField(
         widget=forms.TextInput(
-            attrs={'class': 'form-control'})
+            attrs={'class': 'form-control', 'placeholder': 'charge'})
         )
-    r_avg = AutoCharField(
+    coord_IV = AutoCharField(
         widget=forms.TextInput(
-            attrs={'class': 'form-control'})
+            attrs={'class': 'form-control', 'placeholder': 'coordination'})
         )
-    r_shannon = AutoCharField(
+    spin_state_IV = forms.ChoiceField(
+        required=False,
+        initial=models.ShannonRadiiTable.SPIN_STATES[0],
+        choices=(models.ShannonRadiiTable.SPIN_STATES),
+        widget=forms.Select(attrs={'class': 'form-control'})
+        )
+    element_X = AutoCharField(
         widget=forms.TextInput(
-            attrs={'class': 'form-control'})
+            attrs={'class': 'form-control', 'placeholder': 'element'})
         )
-    global_average = AutoCharField(
+    charge_X = AutoCharField(
         widget=forms.TextInput(
-            attrs={'class': 'form-control'})
+            attrs={'class': 'form-control', 'placeholder': 'charge'})
         )
-    ravg_rglobal = AutoCharField(
+    coord_X = AutoCharField(
         widget=forms.TextInput(
-            attrs={'class': 'form-control'})
+            attrs={'class': 'form-control', 'placeholder': 'coordination'})
         )
-    ravg_rshannon = AutoCharField(
-        widget=forms.TextInput(
-            attrs={'class': 'form-control'})
+    spin_state_X = forms.ChoiceField(
+        required=False,
+        initial=models.ShannonRadiiTable.SPIN_STATES[0],
+        choices=(models.ShannonRadiiTable.SPIN_STATES),
+        widget=forms.Select(attrs={'class': 'form-control'})
         )
-    
 
+    # Experimental R
+    element_I_X_a = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control', 'placeholder': 'element Ⅰ'})
+        )
+    element_I_X_b = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control', 'placeholder': 'element X'})
+        )
+    R_I_X = forms.FloatField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={'class': 'form-control', 'placeholder': 'R'})
+        )
+    element_II_X_a = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control', 'placeholder': "element Ⅱ,Ⅰ'"})
+        )
+    element_II_X_b = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control', 'placeholder': 'element X'})
+        )
+    R_II_X = forms.FloatField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={'class': 'form-control', 'placeholder': 'R'})
+        )
+    element_IV_X_a = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control', 'placeholder': 'element Ⅳ,Ⅴ'})
+        )
+    element_IV_X_b = AutoCharField(
+        widget=forms.TextInput(
+            attrs={'class': 'form-control', 'placeholder': 'element X'})
+        )
+    R_IV_X = forms.FloatField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={'class': 'form-control', 'placeholder': 'R'})
+        )
 
     # Qresp related
     qresp_fetch_url = forms.CharField(required=False,
@@ -491,7 +553,6 @@ class AddDataForm(forms.Form):
                 # General
                 if key.startswith('primary_property_'):
                     self.fields[key] = forms.ModelChoiceField(
-                        # required=False,
                         queryset=models.Property.objects.all(),
                         initial=value
                     )
@@ -512,16 +573,14 @@ class AddDataForm(forms.Form):
                     )
                 elif key.startswith('crystal_system_'):
                     self.fields[key] = forms.ChoiceField(
-                        # required=False,
                         initial=value,
                         choices=(models.Dataset.CRYSTAL_SYSTEMS),
                         widget=forms.Select()
                     )
-                elif key.startswith('space_group_'): 
-                    self.fields[key] = AutoCharField(
-                        initial=value,
-                        model=models.Dataset, field='space_group',
-                        widget=forms.TextInput()
+                elif key.startswith('space_group_'):
+                    self.fields[key] = forms.ModelChoiceField(
+                        queryset=models.SpaceGroup.objects.all(),
+                        initial=value
                     )
 
                 # Synthesis
@@ -747,67 +806,118 @@ class AddDataForm(forms.Form):
                         required=False,
                         widget=forms.HiddenInput(),
                         initial=value)
-                # Tolerance factor/ Bond length
-                # Tolerance factor
-                elif key.startswith('t1_shannon_'):
-                    self.fields[key] = AutoCharField(
-                        initial=value,
-                        widget=forms.TextInput())
-                elif key.startswith('t4_shannon_'):
-                    self.fields[key] = AutoCharField(
-                        initial=value,
-                        widget=forms.TextInput())
-                elif key.startswith('t1_experimental_'):
-                    self.fields[key] = AutoCharField(
-                        initial=value,
-                        widget=forms.TextInput())
-                elif key.startswith('t4_experimental_'):
-                    self.fields[key] = AutoCharField(
-                        initial=value,
-                        widget=forms.TextInput())
-                elif key.startswith('t1_averaged_'):
-                    self.fields[key] = AutoCharField(
-                        initial=value,
-                        widget=forms.TextInput())
-                elif key.startswith('t4_averaged_'):
-                    self.fields[key] = AutoCharField(
-                        initial=value,
-                        widget=forms.TextInput())
-                # Bond length
-                elif key.startswith('element_a_'):
-                    self.fields[key] = AutoCharField(
-                        initial=value,
-                        widget=forms.TextInput())
-                elif key.startswith('element_b_'):
-                    self.fields[key] = AutoCharField(
-                        initial=value,
-                        widget=forms.TextInput())
-                elif key.startswith('r_avg_'):
-                    self.fields[key] = AutoCharField(
-                        initial=value,
-                        widget=forms.TextInput())
-                elif key.startswith('r_shannon_'):
-                    self.fields[key] = AutoCharField(
-                        initial=value,
-                        widget=forms.TextInput())
-                elif key.startswith('global_average_'):
-                    self.fields[key] = AutoCharField(
-                        initial=value,
-                        widget=forms.TextInput())
-                elif key.startswith('ravg_rglobal_'):
-                    self.fields[key] = AutoCharField(
-                        initial=value,
-                        widget=forms.TextInput())
-                elif key.startswith('ravg_rshannon_'):
-                    self.fields[key] = AutoCharField(
-                        initial=value,
-                        widget=forms.TextInput())
-                
 
-
-                
-                
-
+                # Tolerance factor related parameters
+                # Shannon ironic radii
+                elif key.startswith('element_I_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value)
+                elif key.startswith('charge_I_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value)
+                elif key.startswith('coord_I_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value)
+                elif key.startswith('spin_state_I_'):
+                    self.fields[key] = models.ChoiceField(
+                        initial=value,
+                        choices=(models.ShannonIonicRadii.SPIN_STATES),
+                        widget=forms.Select())
+                elif key.startswith('element_II_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value)
+                elif key.startswith('charge_II_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value)
+                elif key.startswith('coord_II_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value)
+                elif key.startswith('spin_state_II_'):
+                    self.fields[key] = models.ChoiceField(
+                        initial=value,
+                        choices=(models.ShannonIonicRadii.SPIN_STATES),
+                        widget=forms.Select())
+                elif key.startswith('element_IV_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value)
+                elif key.startswith('charge_IV_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value)
+                elif key.startswith('coord_IV_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value)
+                elif key.startswith('spin_state_IV_'):
+                    self.fields[key] = models.ChoiceField(
+                        initial=value,
+                        choices=(models.ShannonIonicRadii.SPIN_STATES),
+                        widget=forms.Select())
+                elif key.startswith('element_X_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value)
+                elif key.startswith('charge_X_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value)
+                elif key.startswith('coord_X_'):
+                    self.fields[key] = AutoCharField(
+                        widget=forms.TextInput(),
+                        initial=value)
+                elif key.startswith('spin_state_X_'):
+                    self.fields[key] = models.ChoiceField(
+                        initial=value,
+                        choices=(models.ShannonIonicRadii.SPIN_STATES),
+                        widget=forms.Select())
+                # Experimental bond length
+                elif key.startswith('element_I_X_a_'):
+                        self.fields[key] = AutoCharField(
+                            widget=forms.TextInput(),
+                            initial=value)
+                elif key.startswith('element_I_X_b_'):
+                        self.fields[key] = AutoCharField(
+                            widget=forms.TextInput(),
+                            initial=value)
+                elif key.startswith('R_I_X_'):
+                        self.fields[key] = AutoCharField(
+                            widget=forms.TextInput(),
+                            initial=value)
+                elif key.startswith('element_II_X_a_'):
+                        self.fields[key] = AutoCharField(
+                            widget=forms.TextInput(),
+                            initial=value)
+                elif key.startswith('element_II_X_b_'):
+                        self.fields[key] = AutoCharField(
+                            widget=forms.TextInput(),
+                            initial=value)
+                elif key.startswith('R_II_X_'):
+                        self.fields[key] = AutoCharField(
+                            widget=forms.TextInput(),
+                            initial=value)
+                elif key.startswith('element_IV_X_a_'):
+                        self.fields[key] = AutoCharField(
+                            widget=forms.TextInput(),
+                            initial=value)
+                elif key.startswith('element_IV_X_b_'):
+                        self.fields[key] = AutoCharField(
+                            widget=forms.TextInput(),
+                            initial=value)
+                elif key.startswith('R_IV_X_'):
+                        self.fields[key] = AutoCharField(
+                            widget=forms.TextInput(),
+                            initial=value)
+                elif key == 'update_comments':
+                    self.fields[key] = AutoCharField(
+                            widget=forms.TextInput(),
+                            initial=value)
                 
 
 
