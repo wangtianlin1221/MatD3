@@ -68,6 +68,12 @@ class UnitSerializer(serializers.ModelSerializer):
         fields = ('pk', 'label')
 
 
+class SpaceGroupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.SpaceGroup
+        fields = ('pk', 'name')
+
+
 class DatasetSerializerInfo(serializers.ModelSerializer):
     sample_type = serializers.CharField(source='get_sample_type_display')
 
