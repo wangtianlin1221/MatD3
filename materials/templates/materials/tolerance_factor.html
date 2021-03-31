@@ -1,0 +1,19 @@
+{% extends base_template %}
+
+{% load materials_tags %}
+
+{% block body %}
+<div class="input group">
+	<button id="shannon-tf-button" class="btn btn-info">Shannon based TF</button>
+	<button id="experimental-tf-button" class="btn btn-info">Experimental TF</button>
+	<button id="averaged-tf-button" class="btn btn-info">Averaged TF</button>
+</div>
+<canvas id="shannon_tf_chart" width="400" height="300" hidden='true'></canvas>
+<canvas id="experimental_tf_chart" width="400" height="300" hidden='true'></canvas>
+<canvas id="averaged_tf_chart" width="400" height="300" hidden='true'></canvas>
+{% endblock %}
+
+{% block script %}
+{% load static %}
+<script src="{% static 'materials/javascript/plot_tf.js' %}"></script>
+{% endblock %}

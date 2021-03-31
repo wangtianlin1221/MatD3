@@ -7,7 +7,7 @@
       <h5>Search for Materials</h5>
     </div>
     <div class="card-body">
-      <form id="search-system" method="post">
+      <form id="search-compound" method="post">
         {% csrf_token %}
         <div class="form-group">
           <label for="search_text">Search term: </label>
@@ -29,7 +29,7 @@
       <div class="alert alert-info" id="explanatory_text">
         Search for all or part of a chemical formula, e.g. CH3NH3PbI3 or MAPbI3
       </div>
-      <div class="input-group">
+      <!-- <div class="input-group">
         <div class="input-group-prepend">
           <span id="material_id_label" class="input-group-text">Material ID</span>
         </div>
@@ -54,7 +54,7 @@
         <div class="input-group-append">
           <button id="dataset_id_submit" class="btn btn-primary">Submit</button>
         </div>
-      </div>
+      </div> -->
       <ul id="results" class="list-group">
       </ul>
     </div>
@@ -65,24 +65,12 @@
   <script>
    $('#search_text').attr('placeholder', 'Search for all or part of a chemical formula, e.g. CH3NH3PbI3 or MAPbI3');
    $('#search_term').change(function() {
-     if (this.value == 'exciton_emission') {
-       text = 'Search by range using >, >=, <, <=, or a combination, e.g. >=400';
-       $('#search_text').attr('placeholder', text);
-       $('#explanatory_text').text(text);
-     } else if (this.value == 'formula') {
+     if (this.value == 'formula') {
        text = 'Search for all or part of a chemical formula, e.g. CH3NH3PbI3 or MAPbI3';
        $('#search_text').attr('placeholder', text);
        $('#explanatory_text').text(text);
-     } else if (this.value == 'physical_property') {
-       text = 'Search by physical property, e.g. "band gap"';
-       $('#search_text').attr('placeholder', text);
-       $('#explanatory_text').text(text);
-     } else if (this.value == 'organic') {
-       text = 'Search for all or part of an organic component, e.g. CH3NH3';
-       $('#explanatory_text').text(text);
-       $('#search_text').attr('placeholder', text);
-     } else if (this.value == 'inorganic') {
-       text = 'Search for all or part of an inorganic component, e.g. PbI3';
+     } else if (this.value == 'primary_property') {
+       text = 'Search by primary property, e.g. "atomic structure"';
        $('#search_text').attr('placeholder', text);
        $('#explanatory_text').text(text);
      } else if (this.value == 'author') {
@@ -95,8 +83,8 @@
        $('#explanatory_text').text(text);
      }
    });
-   let search_system = document.getElementById('search-system');
-   search_system.addEventListener('submit', function(event) {
+   let search_compound = document.getElementById('search-compound');
+   search_compound.addEventListener('submit', function(event) {
      event.preventDefault();
      const form_data = new FormData(this);
      axios.post('{% url 'materials:search' %}', form_data)
@@ -105,7 +93,7 @@
           });
    });
   </script>
-  <script>
+<!--   <script>
    const label_width = document.getElementById('search_term').offsetWidth;
    document.getElementById('material_id_label').style.width = `${label_width}px`;
    document.getElementById('dataset_id_label').style.width = `${label_width}px`;
@@ -115,6 +103,6 @@
    document.getElementById('dataset_id_submit').addEventListener('click', () => {
      window.location.href = `dataset/${document.getElementById('dataset_ids').value}`;
    });
-  </script>
+  </script> -->
 
 {% endblock %}

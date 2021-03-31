@@ -13,9 +13,9 @@
           <li class="nav-item">
             <a class="nav-link" href="{% url 'index' %}">Home</a>
           </li>
-          <!-- <li class="nav-item">
+          <li class="nav-item">
             <a class="nav-link" href="{% url 'materials:search' %}">Search</a>
-          </li> -->
+          </li>
           <li class="nav-item">
             <a class="nav-link" href="https://hybrid3.duke.edu/">HybriD<sup>3</sup> project</a>
           </li>
@@ -39,6 +39,9 @@
               </li>
               <li class="nav-item">
                 <a class="nav-link" href="{% url 'materials:import_data' %}">Import data</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link" href="{% url 'materials:tolerance_factor' %}">Tolerance Factor</a>
               </li>
             {% endif %}
             <li class="nav-item">

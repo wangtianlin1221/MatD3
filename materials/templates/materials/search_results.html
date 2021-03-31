@@ -1,35 +1,24 @@
-{% if systems.count > 0 %}
-  {% if physical_properties %}
-    <ul>
-      {% for prop in physical_properties %}
-        <li>{{ prop }}</li>
-      {% endfor %}
-    </ul>
-  {% endif %}
+{% if compounds_map %}
   <table class="table table-hover table-sm">
     <thead>
       <tr>
-        <th>Compound Name</th>
-        <th>Chemical Formula</th>
-        <th>Alternate Names</th>
-        <th>Organic Component</th>
-        <th>Inorganic Component</th>
+        <th>Compound Formula</th>
+        <th>Primary Properties</th>
+        <th>Related Authors</th>
       </tr>
     </thead>
     <tbody>
-      {% for system in systems %}
+      {% for compound, primary_properties, authors in compounds_map %}
         <tr>
-          <td><a href="{% url 'materials:system' pk=system.pk %}">{{ system.compound_name }}</a></td>
-          <td><a href="{% url 'materials:system' pk=system.pk %}">{{ system.formula }}</a></td>
+          <td><a href="{% url 'materials:compound' pk=compound.pk %}">{{ compound.formula }}</a></td>
           <td>
-            <ul style="padding: 0px; list-style-type: none" id="authors-list">
-              {% for name in system.listAlternateNames %}
-                <li><a href="{% url 'materials:system' pk=system.pk %}">{{ name }}</a></li>
-              {% endfor %}
+            <ul style="padding: 0px; list-style-type: none" id="property-list">
+              {% for primary_property in primary_properties %}
+                <li>{{ primary_property }}</li>
+              {% endfor %} 
             </ul>
           </td>
-          <td>{{ system.organic }}</td>
-          <td>{{ system.inorganic }}</td>
+          <td>{{ authors }}</td>
         </tr>
       {% endfor %}
     </tbody>

@@ -1,0 +1,50 @@
+{% extends 'materials/base.html' %}
+
+{% comment %}
+List of data sets for a specific material. The latest updated version
+is shown by default. Users can choose the version to view.
+{% endcomment %}
+
+{% block body %}
+  {% load static %}
+  <div class="card card-default">
+    <div class="card-header">
+      {% if user.is_superuser and dataset_list.0 %}
+        <a href="/admin/materials/compound/{{ dataset_list.0.compound.pk }}/change/" target="_blank">
+          <button type="button" class="btn btn-success" style="float: right">
+            Edit Compound Formula
+          </button>
+        </a>
+      {% endif %}
+      <h3>{{ dataset_list.0.compound }}</h3>
+    </div>
+    <div class="card-body">
+      <div clas="row">
+        {% for dataset in dataset_list %}
+          <div class="card card-item">
+            <div class="card-header">
+              <h5>
+                {{ dataset.primary_property.name|capfirst }}
+                  {% if dataset.verified.exists %}
+                    <span class="badge badge-success">Verified</span>
+                  {% endif %}
+              </h5>
+              <select id="choose_version_{{ dataset.compound.pk }}_{{ dataset.primary_property.pk }}" class="choose-version" style="float: right">
+                <option value="0">--Choose a version--</option>
+              </select>
+              {% include 'materials/dataset_buttons.html' %}
+            </div>
+            <div class="card-body">
+              {% include 'materials/dataset_contents.html' %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block script %}
+  <script src="{% static 'jsmol/JSmol.min.js' %}"></script>
+  {% include 'materials/dataset_scripts.html' with datasets=dataset_list %}
+{% endblock %}
