@@ -45,6 +45,7 @@ function plot_data(element, data, x_property, x_unit, y_property, y_unit) {
 }
 
 for (let element of document.getElementsByTagName('canvas')) {
+  console.log("triggered");
   const plot_id = element.id;
   const plot_pk = plot_id.split('_')[1];
   axios

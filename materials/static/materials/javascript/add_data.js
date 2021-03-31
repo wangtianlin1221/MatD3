@@ -55,7 +55,7 @@ function SelectEntryHandler(entry_type, label_name, post_url) {
         this.card.hidden = true;
         // Update all dropdowns of the current type
         for (let select_name in selectized) {
-          if (select_name.includes(this.entry_type)) {
+          if (select_name.includes(this.entry_type) || select_name.includes('space_group')) {
             if (this.entry_type === 'reference') {
               let article = response.data;
               let text =
@@ -112,6 +112,8 @@ const new_property_handler =
   new SelectEntryHandler('property', 'name', '/materials/properties/');
 const new_unit_handler =
   new SelectEntryHandler('unit', 'label', '/materials/units/');
+const new_space_group_handler = 
+  new SelectEntryHandler('space-group', 'name', '/materials/space-groups/');
 
 
 // All dropdown menus are filled asynchronously
@@ -264,7 +266,7 @@ $.fn.fileUploader = function(filesToUpload) {
 
 // Hide special property fields under subsets and show only normal input
 function reset_subset_fields(subsets_all_element, i_dataset) {
-  for (let input_type of ['atomic-structure-input', 'tolerance-bond-input']) {
+  for (let input_type of ['atomic-structure-input', 'tolerance-factor-input']) {
     for (let element of subsets_all_element.getElementsByClassName(input_type)) {
       element.hidden = true;
     }
@@ -280,7 +282,7 @@ function reset_subset_fields(subsets_all_element, i_dataset) {
 }
 
 
-// Show atomic structure input fields; hide normal input fields and tolerance-bond input fields
+// Show atomic structure input fields; hide normal input fields and tolerance-factor input fields
 const show_atomic_structure_fields = (subsets_all_element, i_dataset) => {
   $('#id_primary_property_' + i_dataset).change(function() {
     if ($('#id_primary_property_' + i_dataset).find(':selected').text() ===
@@ -302,13 +304,15 @@ const show_atomic_structure_fields = (subsets_all_element, i_dataset) => {
 }
 
 
-// Show tolerance factor/ bond length input fields; hide normal input fields and atomic structure fields
-const show_tolerance_bond_fields = (subsets_all_element, i_dataset) => {
+// Show tolerance factor related parameters input fields; hide normal input fields and atomic structure fields
+const show_tolerance_factor_fields = (subsets_all_element, i_dataset) => {
   $('#id_primary_property_' + i_dataset).change(function() {
-    if (['tolerance factor', 'bond length'].includes($('#id_primary_property_' + i_dataset).find(':selected').text())) {
+    if ($('#id_primary_property_' + i_dataset).find(':selected').text() === 'tolerance factor related parameters') {
       reset_subset_fields(subsets_all_element, i_dataset);
-      for (let el of subsets_all_element.getElementsByClassName('tolerance-bond-input')) {
+      for (let el of subsets_all_element.getElementsByClassName('tolerance-factor-input')) {
         el.hidden = false;
+        console.log(el.hidden);
+        console.log(el);
       }
       for (let element of subsets_all_element.getElementsByClassName('normal-input')) {
         element.hidden = true;
@@ -373,6 +377,25 @@ const add_dataset = i_dataset => {
     });
   }
 
+  // Add a new space group
+  if (initial_space_group.length === 0) {
+    axios
+    .get('/materials/space-groups/')
+    .then(response => {
+      selectize_wrapper('space_group_' + i_dataset, response.data, '', 'name');
+      copy_ds.querySelector('#id_' + 'space_group_' + i_dataset).dispatchEvent(new Event('change'));
+      new_space_group_handler.toggle_visibility('id_' + 'space_group_' + i_dataset);
+    });
+  } else {
+    axios
+    .get('/materials/space-groups/')
+    .then(response => {
+      selectize_wrapper('space_group_' + i_dataset, response.data, initial_space_group[i_dataset-1], 'name');
+      copy_ds.querySelector('#id_' + 'space_group_' + i_dataset).dispatchEvent(new Event('change'));
+      new_space_group_handler.toggle_visibility('id_' + 'space_group_' + i_dataset);
+    });
+  }
+
   
 
   // Append dataset template to the document
@@ -417,12 +440,11 @@ const add_dataset = i_dataset => {
   number_of_subsets.dispatchEvent(new Event('change'));
 
   show_atomic_structure_fields(all_subsets, i_dataset);
-  show_tolerance_bond_fields(all_subsets, i_dataset);
+  show_tolerance_factor_fields(all_subsets, i_dataset);
 
   $('#id_primary_property_' + i_dataset).change(function() {
     const selected = $('#id_primary_property_' + i_dataset).find(':selected').text();
-    if (selected !== 'atomic structure' && selected !== 'tolerance factor'
-      && selected !== 'bond length') {
+    if (selected !== 'atomic structure' && selected !== 'tolerance factor related parameters') {
       reset_subset_fields(all_subsets, i_dataset);
     }
   });
@@ -483,15 +505,26 @@ const add_subset = (i_dataset, i_subset) => {
     .addEventListener('change', function() {
       import_lattice_parameters(i_dataset, i_subset, copy, this);
     });
+  
+  // Enable/ Disable spin_state field
+  const toggle_field_status = (copy_el, element_label) => {
+    let input_el = copy_el.querySelector('#id_element_' + element_label + suffix);
+    let select_el = copy_el.querySelector('#id_spin_state_' + element_label + suffix);
+    input_el.addEventListener('change', function() {
+      if (['Fe', 'Co', 'Ni'].includes(input_el.value)) {
+        select_el.disabled = false;
+      } else {
+        select_el.disabled = true;
+      }
+    });
+    input_el.dispatchEvent(new Event('change'));
+  }
+  
+  toggle_field_status(copy, 'I');
+  toggle_field_status(copy, 'II');
+  toggle_field_status(copy, 'IV');
+  toggle_field_status(copy, 'X');
 
-  // Add bond lengths
-  copy.getElementsByClassName('bond-lengths')[0].id =
-    'bond-lengths_' + i_dataset + '_' + i_subset;
-  const bond_length_btn = copy.getElementsByClassName('add-bond-length')[0]
-  // fixed_prop_btn.id = 'add-fixed-property_' + i_dataset + '_' + i_subset;
-  bond_length_btn.addEventListener('click', function() {
-    add_bond_length(i_dataset, i_subset, ++counter_bond_length);
-  });
   
   // Select or add a reference
   let reference_name = 'select_reference_' + i_dataset + '_' + i_subset;
@@ -541,32 +574,7 @@ const add_subset = (i_dataset, i_subset) => {
   
     
   document.getElementById('subsets_all_' + i_dataset).append(copy);
-
-  // Add/remove data for chart
-  toggle_section_visibility(
-    'chart-button' + suffix,
-    'id_with_data_for_chart' + suffix,
-    'chart-body' + suffix);
-  // Add/remove data for atomic structure
-  // toggle_section_visibility(
-  //   'atomic-structure-button' + suffix,
-  //   'id_with_data_for_atomic_structure' + suffix,
-  //   'atomic-structure-body' + suffix);
-  // Add/remove fixed properties
-  toggle_section_visibility(
-    'fixed-property-button' + suffix,
-    'id_with_fixed_property' + suffix,
-    'fixed-property-body' + suffix);
-  // // Add/remove additional files
-  // toggle_section_visibility(
-  //   'additional-file-button' + suffix,
-  //   'id_with_additional_files' + suffix,
-  //   'additional-file-body' + suffix);
-  // // Add/remove reference
-  // toggle_section_visibility(
-  //   'reference-button' + suffix,
-  //   'id_with_reference' + suffix,
-  //   'reference-body' + suffix);
+  
 
   // Add legends
   const number_of_curves = document.querySelector('#id_number_of_curves_' + i_dataset + '_' + i_subset);  
@@ -649,49 +657,6 @@ const add_fixed_property = (i_dataset, i_subset, counter, prop_initial='', unit_
     document.getElementById('fixed-properties_' + i_dataset + '_' + i_subset).append(copy);
 }
 
-
-// Function that create a bond length record
-const add_bond_length = (i_dataset, i_subset, counter, element_a_init='', element_b_init='', 
-  r_avg_init='', r_shannon_init='', global_average_init='', ravg_rglobal_init='', ravg_rshannon_init='') => {
-  // Append a bond length
-  const copy = document.getElementsByClassName('bond-length-template')[0].cloneNode(true);
-  const suffix = '_' + i_dataset + '_' + i_subset + '_' + counter;
-  let el, name;
-  copy.classList.remove('d-none', 'bond-length-template');
-  for (let element of copy.getElementsByTagName('input')) {
-    element.id += suffix;
-    element.name += suffix;
-  }
-  if (element_a_init) {
-    copy.querySelector('#id_element_a' + suffix).value = element_a_init;
-  }
-  if (element_b_init) {
-    copy.querySelector('#id_element_b' + suffix).value = element_b_init;
-  }
-  if (r_avg_init) {
-    copy.querySelector('#id_r_avg' + suffix).value = r_avg_init;
-  }
-  if (r_shannon_init) {
-    copy.querySelector('#id_r_shannon' + suffix).value = r_shannon_init;
-  }
-  if (global_average_init) {
-    copy.querySelector('#id_global_average' + suffix).value = global_average_init;
-  }
-  if (ravg_rglobal_init) {
-    copy.querySelector('#id_ravg_rglobal' + suffix).value = ravg_rglobal_init;
-  }
-  if (ravg_rshannon_init) {
-    copy.querySelector('#id_ravg_rshannon' + suffix).value = ravg_rshannon_init;
-  }
-  // Remove a bond length
-  copy
-    .getElementsByClassName('close-bond-length')[0]
-    .addEventListener('click', function() {
-      let row = this.parentNode.parentNode.parentNode.parentNode;
-      row.remove();
-    });
-  document.getElementById('bond-lengths_' + i_dataset + '_' + i_subset).append(copy);
-}
 
 
 // Add a new dataset
