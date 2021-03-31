@@ -8,6 +8,7 @@ import os
 import re
 import requests
 import zipfile
+import math
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -22,7 +23,10 @@ from django.db.models import Case
 from django.db.models import Q
 from django.db.models import Value
 from django.db.models import When
-from django.db.models.fields import TextField
+from django.db.models import Avg
+from django.db.models import Max
+from django.db.models.fields import TextField, FloatField
+from django.forms.models import model_to_dict
 from django.http import Http404
 from django.http import HttpResponse
 from django.http import HttpResponseForbidden
@@ -37,6 +41,7 @@ from django.views import generic
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+
 
 from . import forms
 from . import models
@@ -88,81 +93,28 @@ class StaffStatusMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
-# class CompoundView(generic.ListView):
-    # template_name = 'materials/system.html'
-    # context_object_name = 'dataset_list'
-
-    # def get_queryset(self, **kwargs):
-    #     return models.Dataset.objects.filter(
-    #         system__pk=self.kwargs['pk']).annotate(is_atomic_structure=Case(
-    #             When(primary_property__name='atomic structure',
-    #                  then=Value(True)),
-    #             default=Value(False), output_field=BooleanField())).order_by(
-    #                 '-is_atomic_structure')
-
-
-# class PropertyAllEntriesView(generic.ListView):
-#     """Display all data sets for a given property and system."""
-#     template_name = 'materials/property_all_entries.html'
-
-#     def get_queryset(self, **kwargs):
-#         return models.Dataset.objects.filter(
-#             system__pk=self.kwargs['system_pk']).filter(
-#                 primary_property__pk=self.kwargs['prop_pk'])
-
-
 # class ReferenceDetailView(generic.DetailView):
 #     model = models.Reference
-
-
-# class DatasetView(generic.ListView):
-#     """Display information about a single data set.
-
-#     This is defined as a ListView so that we can reuse the same
-#     template as for PropertyAllEntriesView. Otherwise, this is really
-#     a DetailView.
-
-#     """
-#     template_name = 'materials/property_all_entries.html'
-
-#     def get_queryset(self, **kwargs):
-#         return models.Dataset.objects.filter(pk=self.kwargs['pk'])
-
-
-# class LinkedDataView(generic.ListView):
-#     """Returns data sets that are linked to each other."""
-#     template_name = 'materials/linked_data.html'
-
-#     def get_queryset(self, **kwargs):
-#         dataset = models.Dataset.objects.get(pk=self.kwargs['pk'])
-#         datasets = dataset.linked_to.all()
-#         return list(datasets) + [dataset]
-
-# Just for testing
-def create_post(request):
-    form = forms.AddDataForm()
-    print("output:", form['number_of_subsets'].value())
-    return HttpResponse()
     
 
 class SearchFormView(generic.TemplateView):
-    """Search for system page"""
+    """Search for system page."""
     template_name = 'materials/search.html'
     search_terms = [
         ['formula', 'Formula'],
-        ['physical_property', 'Physical property'],
+        ['primary_property', 'Primary property'],
         ['author', 'Author'],
     ]
 
     def get(self, request):
-        material_ids = models.System.objects.all().values_list(
-            'pk', 'compound_name')
-        dataset_ids = models.Dataset.objects.all().values_list(
-            'pk', 'system__compound_name', 'primary_property__name')
+        # material_ids = models.System.objects.all().values_list(
+        #     'pk', 'compound_name')
+        # dataset_ids = models.Dataset.objects.all().values_list(
+        #     'pk', 'system__compound_name', 'primary_property__name')
         return render(request, self.template_name, {
             'search_terms': self.search_terms,
-            'material_ids': material_ids,
-            'dataset_ids': dataset_ids,
+            # 'material_ids': material_ids,
+            # 'dataset_ids': dataset_ids,
         })
 
     def post(self, request):
@@ -171,53 +123,206 @@ class SearchFormView(generic.TemplateView):
         search_text = ''
         # default search_term
         search_term = 'formula'
-        physical_properties = [2]
         if form.is_valid():
             search_text = form.cleaned_data['search_text']
             search_term = request.POST.get('search_term')
             systems_info = []
             if search_term == 'formula':
-                systems = models.System.objects.filter(
-                    Q(formula__icontains=search_text) |
-                    Q(group__icontains=search_text) |
-                    Q(compound_name__icontains=search_text)).order_by(
+                compounds = models.Compound.objects.filter(
+                    formula__icontains=search_text).order_by(
                         'formula')
-            elif search_term == 'physical_property':
-                physical_properties = models.Property.objects.filter(
-                    name__icontains=search_text).values_list('name', flat=True)
-                systems = models.System.objects.filter(
-                    dataset__primary_property__name__icontains=search_text)
-            elif search_term == 'organic':
-                systems = models.System.objects.filter(
-                    organic__contains=search_text).order_by('organic')
-            elif search_term == 'inorganic':
-                systems = models.System.objects.filter(
-                    inorganic__contains=search_text).order_by('inorganic')
+            elif search_term == 'primary_property':
+                compounds = models.Compound.objects.filter(
+                    datasets__primary_property__name__icontains=search_text).order_by(
+                    'formula')
             elif search_term == 'author':
                 keywords = search_text.split()
                 query = reduce(operator.or_, (
-                    Q(dataset__reference__authors__last_name__icontains=x) for
+                    Q(datasets__subsets__reference__authors__last_name__icontains=x) for
                     x in keywords))
-                systems = models.System.objects.filter(query).distinct()
+                compounds = models.Compound.objects.filter(query).distinct()
             else:
                 raise KeyError('Invalid search term.')
+            compounds_map = []
+            for compound in compounds:
+                primary_properties = models.Property.objects.filter(
+                    datasets__compound__formula=compound.formula).values_list('name', flat=True).distinct()
+                authors = ""
+                for reference in models.Reference.objects.filter(
+                    subsets__dataset__compound__formula=compound.formula):
+                    authors += reference.getAuthorsAsString()
+                compounds_map.append([compound, primary_properties, authors])
         args = {
-            'systems': systems,
+            'compounds_map': compounds_map,
             'search_term': search_term,
-            'systems_info': systems_info,
-            'physical_properties': physical_properties,
         }
         return render(request, template_name, args)
 
 
+class CompoundView(generic.ListView):
+    template_name = 'materials/compound.html'
+    context_object_name = 'dataset_list'
+
+    def get_queryset(self, **kwargs):
+        conditions = models.Dataset.objects.filter(
+            compound__pk=self.kwargs['pk']).values(
+            'primary_property').annotate(
+            last_updated=Max('updated'))
+        dataset_list = []
+        for c in conditions:
+            dataset = models.Dataset.objects.filter(
+                compound__pk=self.kwargs['pk'],
+                primary_property__pk=c['primary_property'],
+                updated=c['last_updated'])[0]
+            dataset_list.append(dataset)
+        return dataset_list
+
+
+def dataset_versions(request, compound_pk=None, property_pk=None):
+    obj_list = list(models.Dataset.objects.filter(
+        compound__pk=compound_pk, primary_property__pk=property_pk).values('pk', 'updated', 'updated_by__username'))
+    response = {'data': obj_list}
+    return JsonResponse(response)
+
+
+def dataset_details(request, pk=None):
+    obj = get_object_or_404(models.Dataset, pk=pk)
+    response = {
+        'general': {},
+        'synthesis': {},
+        'experimental': {},
+        'computational': {},
+        'data': [],
+    }
+    # general info
+    response['general']['Origin'] = 'experimental' if obj.is_experimental else 'theoretical'
+    response['general']['Sample type'] = models.Dataset.SAMPLE_TYPES[obj.sample_type][1]
+    response['general']['Crystal system'] = models.Dataset.CRYSTAL_SYSTEMS[obj.crystal_system][1]
+    response['general']['Space group'] = obj.space_group.name
+
+    # synthesis method
+    if obj.synthesis.exists():
+        synthesis = response['synthesis']
+        synthesis['Starting materials'] = obj.synthesis.first().starting_materials
+        synthesis['Product'] = obj.synthesis.first().product
+        synthesis['Description'] = obj.synthesis.first().description
+        synthesis['Comment'] = obj.synthesis.first().comment.text if hasattr(obj.synthesis.first(), 'comment') else ''
+
+    # experimental details
+    if obj.experimental.exists():
+        experimental = response['experimental']
+        experimental['Method'] = obj.experimental.first().method
+        experimental['Description'] = obj.experimental.first().description
+        experimental['Comment'] = obj.experimental.first().comment.text if hasattr(obj.experimental.first(), 'comment') else ''
+
+    # computational details
+    if obj.computational.exists():
+        computational = response['computational']
+        computational['Code'] = obj.computational.first().code
+        computational['Level of theory'] = obj.computational.first().level_of_theory
+        computational['Exchange-correlation functional'] = obj.computational.first().xc_functional
+        computational['K-point grid'] = obj.computational.first().k_point_grid
+        computational['Level of relativity'] = obj.computational.first().level_of_relativity
+        computational['Basis set definition'] = obj.computational.first().basis_set_definition
+        computational['Numerical accuracy'] = obj.computational.first().numerical_accuracy
+        if obj.computational.first().repositories.exists():
+            computational['External repositories'] = [x.url for x in obj.computational.first().repositories.all()]
+        else:
+            computational['External repositories'] = []
+        computational['Comment'] = obj.computational.first().comment.text if hasattr(obj.computational.first(), 'comment') else ''
+
+    # subset data
+    if obj.subsets.exists():
+        data = response['data']
+        for s in obj.subsets.all():
+            subset = {
+                'pk': s.pk,
+                'primary property': s.dataset.primary_property.name,
+                'title': s.title,
+                'reference': model_to_dict(s.reference) if s.reference else {},
+                'authors': list(s.reference.authors.values()) if s.reference and s.reference.authors else [],
+                'additional files': [],
+            }
+            for x in s.get_additional_files_path():
+                ext = os.path.splitext(x)
+                subset['additional files'].append({
+                    'path': x,
+                    'name': x.split('/')[-1],
+                    'extension': ext,
+                })
+            if s.dataset.primary_property.name == 'atomic structure':
+                subset['lattice constants'] = []
+                subset['atomic coordinates'] = []
+                if s.lattice_constants.first():
+                    for x in s.get_lattice_constants():
+                        subset['lattice constants'].append({
+                            'symbol': x[0],
+                            'value': x[1],
+                            'unit': x[2],
+                        })
+                if s.atomic_coordinates.first():
+                    subset['atomic coordinates'] = s.get_atomic_coordinates()
+            elif s.dataset.primary_property.name == 'tolerance factor related parameters':
+                subset['bond lengths'] = []
+                if s.bond_length.first():
+                    subset['bond lengths'] = s.get_bond_lengths()
+                subset['tolerance factors'] = []
+                if s.tolerance_factors.first():
+                    subset['tolerance factors'] = s.get_tolerance_factors()
+            else:
+                subset['fixed properties'] = []
+                if s.fixed_values.first():
+                    subset['fixed properties'] = s.get_fixed_properties()  
+            data.append(subset)         
+
+    return JsonResponse(response)
+
+
+def get_jsmol_input(request, pk):
+    """Return a statement to be executed by JSmol."""
+    subset = models.Subset.objects.get(pk=pk)
+    if not subset:
+        return HttpResponse()
+    if subset.input_data_file:
+        subsets = subset.dataset.subsets.all()
+        subsets_with_file = []
+        for s in subsets:
+            if s.input_data_file:
+                subsets_with_file.append(s)
+        if subset.input_data_file.path == subsets_with_file[0].input_data_file.path:
+            filename = os.path.basename(
+                subset.input_data_file.path)
+            return HttpResponse(
+                f'load /media/data_files/dataset_{subset.dataset.pk}/{filename} '
+                '{1 1 1}')
+    return HttpResponse()
+
+
+def data_for_chart(request, pk):
+    subset = models.Subset.objects.get(pk=pk)
+    if subset.curves.first():
+        obj = subset.curves.first()
+        response = {'x title': obj.x_title,
+                    'x unit': obj.x_unit,
+                    'y title': obj.y_title,
+                    'y unit': obj.y_unit,
+                    'data': []}
+    for curve in subset.curves.all():
+        data = {
+            'legend': curve.legend,
+            'values': []
+        }
+        for value in curve.datapoints.all():
+            data['values'].append({
+                'x': value.x_value,
+                'y': value.y_value,
+            })
+        response['data'].append(data)
+    return JsonResponse(response)
+
+
 class AddDataView(StaffStatusMixin, generic.TemplateView):
-    """View for submitting user data.
-
-    The arguments are only meant to be used when this view is called
-    from external sites. Fields such as the reference can be prefilled
-    then.
-
-    """
+    """View for adding new data."""
     template_name = 'materials/add_data.html'
 
     def get(self, request, *args, **kwargs):
@@ -230,9 +335,6 @@ class AddDataView(StaffStatusMixin, generic.TemplateView):
             main_form.fields['return_url'].initial = return_url
         else:
             base_template = 'materials/base.html'
-        # if request.GET.get('reference'):
-        #     main_form.fields['fixed_reference'].initial = (
-        #         models.Reference.objects.get(pk=request.GET.get('reference')))
         if request.GET.get('qresp-server-url'):
             qresp_paper_id = request.GET.get('qresp-paper-id')
             qresp_fetch_url = request.GET.get("qresp-server-url")
@@ -251,6 +353,125 @@ class AddDataView(StaffStatusMixin, generic.TemplateView):
             'reference_form': forms.AddReferenceForm(),
             'property_form': forms.AddPropertyForm(),
             'unit_form': forms.AddUnitForm(),
+            'space_group_form': forms.AddSpaceGroupForm(),
+            'base_template': base_template,
+        })
+
+
+class UpdateDatasetView(StaffStatusMixin, generic.TemplateView):
+    """View for editing data of a dataset."""
+    template_name = 'materials/update_dataset.html'
+
+    def get(self, request, *args, **kwargs):
+        main_form = forms.AddDataForm()
+        base_template = 'materials/base.html'
+        dataset_pk = self.kwargs['pk']
+        dataset = get_object_or_404(models.Dataset, pk=dataset_pk)
+        formula = dataset.compound.formula
+        primary_property = dataset.primary_property.name
+
+        # Prefill the form with current instance data
+        # General
+        main_form.fields['formula'].initial = formula
+        main_form.fields['primary_property'].initial = dataset.primary_property.pk
+        main_form.fields['origin_of_data'].initial = 'is_experimental' if dataset.is_experimental \
+                                            else 'is_theoretical'
+        main_form.fields['sample_type'].initial = dataset.sample_type
+        main_form.fields['crystal_system'].initial = dataset.crystal_system
+        main_form.fields['space_group'].initial = dataset.space_group.pk
+
+        # Synthesis
+        if dataset.synthesis.exists():
+            synthesis = dataset.synthesis.first()
+            main_form.fields['with_synthesis_details'].initial = 'True'
+            for field in filter(lambda field: type(field) is TextField,
+                            models.SynthesisMethod._meta.get_fields()):
+                if field.name == 'description':
+                    main_form.fields['synthesis_description'].initial = synthesis.description
+                else:
+                    main_form.fields[field.name].initial = getattr(synthesis, field.name)
+            if hasattr(synthesis, 'comment'):
+                main_form.fields['synthesis_comment'].initial = synthesis.comment.text
+
+        # Experimental
+        if dataset.experimental.exists():
+            experimental = dataset.experimental.first()
+            for field in filter(lambda field: type(field) is TextField,
+                                models.ExperimentalDetails._meta.get_fields()):
+                if field.name == 'method':
+                    main_form.fields['experimental_method'].initial = experimental.method
+                elif field.name == 'description':
+                    main_form.fields['experimental_description'].initial = experimental.description
+                else:
+                    main_form.fields[field.name] = getattr(experimental, field.name)
+            if hasattr(experimental, 'comment'):
+                main_form.fields['experimental_comment'] = experimental.comment.text
+
+        # Computational
+        if dataset.computational.exists():
+            comp = dataset.computational.first()
+            for field in filter(lambda field: type(field) is TextField,
+                                models.ComputationalDetails._meta.get_fields()):
+                main_form.fields[field.name] = getattr(comp, field.name)
+            if hasattr(comp, 'comment'):
+                main_form.fields['computational_comment'] = comp.comment.text
+
+        # Subset data
+        subsets = dataset.subsets.all()
+        main_form.fields['number_of_subsets'].initial = len(subsets)
+        data = []
+        for i, subset in enumerate(subsets):
+            d = {}
+            if dataset.primary_property.name == 'atomic structure':
+                lattice = subset.lattice_constants.first()
+                if lattice:
+                    for field in filter(lambda field: type(field) is FloatField,
+                                    models.LatticeConstant._meta.get_fields()):
+                        d[f'lattice_constant_{field.name}_1_{i+1}'] = getattr(lattice, field.name)
+                coords = subset.atomic_coordinates.all()
+                if coords:
+                    lines = ""
+                    for coord in coords:
+                        line = coord.label + ' ' + str(coord.coord_1) + ' ' + str(coord.coord_2) \
+                             + ' ' + str(coord.coord_3) + ' ' + coord.element + '\n'
+                        lines += line
+                    d[f'atomic_coordinates_1_{i+1}'] = lines
+            
+            elif dataset.primary_property.name == 'tolerance factor related parameters':
+                for shannon in subset.shannon_ionic_radiis.all():
+                    element_label = models \
+                                    .ShannonIonicRadii \
+                                    .ELEMENT_LABELS[shannon.element_label][1] \
+                                    .split(" ")[1]
+                    d[f'element_{element_label}_1_{i+1}'] = shannon.element
+                    d[f'charge_{element_label}_1_{i+1}'] = shannon.charge
+                    d[f'coord_{element_label}_1_{i+1}'] = shannon.coordination
+                    d[f'spin_state_{element_label}_1_{i+1}'] = shannon.spin_state
+                labels = ['I', 'II', 'IV']
+                for bond in subset.bond_length.all():
+                    label = labels[bond.r_label]
+                    d[f'element_{label}_X_a_1_{i+1}'] = bond.element_a
+                    d[f'element_{label}_X_b_1_{i+1}'] = bond.element_b
+                    d[f'R_{label}_X_1_{i+1}'] = bond.experimental_r if bond.experimental_r else ""
+                print(d)
+            else:
+                pass
+
+            data.append(d)
+
+
+
+
+        return render(request, self.template_name, {
+            'formula': formula,
+            'primary_property': primary_property,
+            'dataset_pk': dataset_pk,
+            'main_form': main_form,
+            'reference_form': forms.AddReferenceForm(),
+            'property_form': forms.AddPropertyForm(),
+            'unit_form': forms.AddUnitForm(),
+            'space_group_form': forms.AddSpaceGroupForm(),
+            'data': data,
             'base_template': base_template,
         })
 
@@ -262,6 +483,15 @@ class ImportDataView(StaffStatusMixin, generic.TemplateView):
         return render(request, self.template_name, {
             'base_template': 'materials/base.html',
         })
+
+
+class ToleranceFactorView(StaffStatusMixin, generic.TemplateView):
+    template_name='materials/tolerance_factor.html'
+
+    def get(self, request):
+        return render(request, self.template_name, {
+            'base_template': 'materials/base.html',
+            })
 
 
 class ReferenceViewSet(viewsets.ModelViewSet):
@@ -318,57 +548,19 @@ class UnitViewSet(viewsets.ModelViewSet):
         serializer.save(created_by=self.request.user)
 
 
-# def dataset_to_zip(request, dataset):
-#     """Generate a zip file from data set contents."""
-#     in_memory_object = io.BytesIO()
-#     zf = zipfile.ZipFile(in_memory_object, 'w')
-#     # Header file to the data
-#     zf.writestr('files/info.txt',
-#                 utils.dataset_info(dataset, request.get_host()))
-#     # Main data
-#     for file_ in (f.dataset_file.path for f in dataset.input_files.all()):
-#         zf.write(file_,
-#                  os.path.join('files', os.path.basename(file_)))
-#     # Additional files
-#     for file_ in (f.dataset_file.path for f in dataset.files.all()):
-#         zf.write(file_,
-#                  os.path.join('files/additional', os.path.basename(file_)))
-#     zf.close()
-#     return in_memory_object
+class SpaceGroupViewSet(viewsets.ModelViewSet):
+    queryset = models.SpaceGroup.objects.all()
+    serializer_class = serializers.SpaceGroupSerializer
+    permission_classes = (permissions.IsStaffOrReadOnly,)
 
-
-# class DatasetViewSet(viewsets.ReadOnlyModelViewSet):
-#     queryset = models.Dataset.objects.all()
-#     serializer_class = serializers.DatasetSerializer
-
-#     @action(detail=True)
-#     def info(self, request, pk):
-#         dataset = self.get_object()
-#         serializer = serializers.DatasetSerializerInfo(dataset)
-#         return Response(serializer.data)
-
-#     @action(detail=False)
-#     def summary(self, request):
-#         serializer = serializers.DatasetSerializerSummary(self.queryset,
-#                                                           many=True)
-#         return Response(serializer.data)
-
-#     @action(detail=True)
-#     def files(self, request, pk):
-#         """Retrieve data set contents and uploaded files as zip."""
-#         dataset = self.get_object()
-#         in_memory_object = dataset_to_zip(request, dataset)
-#         response = HttpResponse(in_memory_object.getvalue(),
-#                                 content_type='application/x-zip-compressed')
-#         response['Content-Disposition'] = 'attachment; filename=files.zip'
-#         return response
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
 
 
 @staff_status_required
 @transaction.atomic
 def submit_data(request):
     """Primary function for submitting data from the user."""
-
 
     def error_and_return(form, dataset=None, text=None):
         """Shortcut for returning with info about the error."""
@@ -431,9 +623,7 @@ def submit_data(request):
     # Create compound
     compound_list = [x[0] for x in models.Compound.objects.all().values_list('formula')]
     cur_compound = form.cleaned_data['formula']
-    print(cur_compound)
     if cur_compound in compound_list:
-        print("compound exists.")
         compound = models.Compound.objects.filter(formula=cur_compound)[0]
     else:
         compound = models.Compound.objects.create(
@@ -448,10 +638,6 @@ def submit_data(request):
         dataset.sample_type = form.cleaned_data[f'sample_type_{i_dataset}']
         dataset.crystal_system = form.cleaned_data[f'crystal_system_{i_dataset}']
         dataset.space_group = form.cleaned_data[f'space_group_{i_dataset}']
-        # Make representative by default if first entry of its kind
-        dataset.representative = not bool(models.Dataset.objects.filter(
-            compound=dataset.compound).filter(
-                primary_property=dataset.primary_property))
         dataset.save()
         logger.info(f'Create dataset #{dataset.pk}')
         if form.cleaned_data[f'with_synthesis_details_{i_dataset}']:
@@ -505,7 +691,7 @@ def submit_data(request):
             if form.cleaned_data[f'external_repositories_{i_dataset}']:
                 for url in form.cleaned_data[f'external_repositories_{i_dataset}'].split():
                     if not requests.head(url).ok:
-                        return error_and_return(form, compound,
+                        return error_and_return(form, dataset,
                                                 'Could not process url for the '
                                                 f'external repository: "{url}"')
                     models.ExternalRepository.objects.create(
@@ -519,8 +705,6 @@ def submit_data(request):
         datapoints = []
         lattice_constants = []
         atomic_coordinates = []
-        tolerance_factors = []
-        bond_lengths = []
         # multiple_subsets = int(form.cleaned_data['number_of_subsets' + '_' + i_dataset]) > 1
         for i_subset in range(1, int(form.cleaned_data[f'number_of_subsets_{i_dataset}']) + 1):
             suffix = str(i_dataset) + '_' + str(i_subset)
@@ -547,7 +731,7 @@ def submit_data(request):
                         value = float(form.cleaned_data[f'lattice_constant_{key}_{suffix}'])
                         setattr(lattice_constant, key, value)
                     except ValueError:
-                        return error_and_return(form, compound, f'Could not process lattice constant {key}.')
+                        return error_and_return(form, dataset, f'Could not process lattice constant {key}.')
                 lattice_constants.append(lattice_constant)
                 # Store atomic coordinates into database
                 lattice_vectors = []
@@ -586,84 +770,108 @@ def submit_data(request):
                         # Skip comments and empty lines
                         if not re.match(r'(?:\r?$|#|//)', line):
                             return error_and_return(
-                                form, compound, f'Could not process line: {line}')
-            # Tolerance factor
-            elif dataset.primary_property.name == 'tolerance factor':
+                                form, dataset, f'Could not process line: {line}')
+            # Tolerance factor related parameters
+            elif dataset.primary_property.name == 'tolerance factor related parameters':
                 subset.save()
-                # Create tolerance factor objects
-                tf_shannon = models.ToleranceFactor(
-                    created_by=request.user,
-                    subset=subset,
-                    data_source=0)
-                if form.cleaned_data['t1_shannon_' + suffix]:
+                label_list = ['I', 'II', 'IV', 'X']
+                # Query for Shannon ionic radii
+                r_dict = {}
+                for i in range(4):
+                    label = label_list[i]
+                    shannon_r = models.ShannonIonicRadii(
+                                    created_by=request.user,
+                                    compound=compound,
+                                    subset=subset,
+                                    element_label=i)
+                    shannon_r.element = form.cleaned_data[f'element_{label}_' + suffix]
+                    shannon_r.charge = form.cleaned_data[f'charge_{label}_' + suffix]
+                    shannon_r.coordination = form.cleaned_data[f'coord_{label}_' + suffix]
+                    if f'spin_state_{label}_' + suffix in form.cleaned_data:
+                        shannon_r.spin_state = form.cleaned_data[f'spin_state_{label}_' + suffix]
                     try:
-                        tf_shannon.t1 = float(form.cleaned_data['t1_shannon_' + suffix])
-                    except ValueError:
-                        return error_and_return(form=form, text=f'Could not process t1_shannon_{suffix}')
-                if form.cleaned_data['t4_shannon_' + suffix]:
-                    try:
-                        tf_shannon.t4 = float(form.cleaned_data['t4_shannon_' + suffix])
-                    except ValueError:
-                        return error_and_return(form, compound, f'Could not process t4_shannon_{suffix}')
-                tolerance_factors.append(tf_shannon)
-                tf_exp = models.ToleranceFactor(
-                    created_by=request.user,
-                    subset=subset,
-                    data_source=1)
-                if form.cleaned_data['t1_experimental_' + suffix]:
-                    try:
-                        tf_exp.t1 = float(form.cleaned_data['t1_experimental_' + suffix])
-                    except ValueError:
-                        return error_and_return(form, compound, f'Could not process t1_experimental_{suffix}')
-                if form.cleaned_data['t4_shannon_' + suffix]:
-                    try:
-                        tf_exp.t4 = float(form.cleaned_data['t4_experimental_' + suffix])
-                    except ValueError:
-                        return error_and_return(form, compound, f'Could not process t4_experimental_{suffix}')
-                tolerance_factors.append(tf_exp)
-                tf_avg = models.ToleranceFactor(
-                    created_by=request.user,
-                    subset=subset,
-                    data_source=2)
-                if form.cleaned_data['t1_averaged_' + suffix]:
-                    try:
-                        tf_avg.t1 = float(form.cleaned_data['t1_averaged_' + suffix])
-                    except ValueError:
-                        return error_and_return(form, compound, f'Could not process t1_averaged_{suffix}')
-                if form.cleaned_data['t4_averaged_' + suffix]:
-                    try:
-                        tf_avg.t4 = float(form.cleaned_data['t4_averaged_' + suffix])
-                    except ValueError:
-                        return error_and_return(form, compound, f'Could not process t4_averaged_{suffix}')
-                tolerance_factors.append(tf_avg)
-
-            # Bond length
-            elif dataset.primary_property.name == 'bond length':
-                subset.save()
-                counter = 1
-                for key in form.cleaned_data:
-                    if key.startswith(f'element_a_{suffix}_'):
-                        bond_length = models.BondLength(
-                            created_by=request.user,
-                            subset=subset,
-                            element_a = form.cleaned_data[f'element_a_{suffix}_{counter}'],
-                            element_b = form.cleaned_data[f'element_b_{suffix}_{counter}'],
-                            bond_counter=counter)
+                        if shannon_r.element and shannon_r.charge and shannon_r.coordination:
+                            shannon_r.ionic_radius = models.ShannonRadiiTable.objects.filter(
+                                element=shannon_r.element,
+                                charge=shannon_r.charge,
+                                coordination=shannon_r.coordination,
+                                spin_state=shannon_r.spin_state)[0].ionic_radius
+                            r_dict[f'r_{label}'] = shannon_r.ionic_radius
+                        shannon_r.save()
+                    except:
+                        return error_and_return(form, dataset, 
+                            f'Query for Shannon ionic radii of element {label}: {shannon_r.element} failed.')
+                
+                # Create bond length object for each bond
+                for i in range(3):
+                    label = label_list[i]
+                    # If element_a, element_b is not filled, pad it with shannon inputs.
+                    if form.cleaned_data[f'element_{label}_X_a_' + suffix]:
+                        element_a = form.cleaned_data[f'element_{label}_X_a_' + suffix]
+                    else:
+                        element_a = form.cleaned_data[f'element_{label}_' + suffix]
+                    if form.cleaned_data[f'element_{label}_X_b_' + suffix]:
+                        element_b = form.cleaned_data[f'element_{label}_X_b_' + suffix]
+                    else:
+                        element_b = form.cleaned_data[f'element_X_' + suffix]
+                    bond_obj = models.BondLength(
+                        created_by=request.user,
+                        compound=compound,
+                        subset=subset,
+                        r_label=i,
+                        element_a=element_a,
+                        element_b=element_b,
+                        bond_id=element_a + '-' + element_b)
+                    if form.cleaned_data[f'R_{label}_X_{suffix}']:
                         try:
-                            if form.cleaned_data[f'r_avg_{suffix}_{counter}']:
-                                bond_length.r_avg = float(form.cleaned_data[f'r_avg_{suffix}_{counter}'])
-                            if form.cleaned_data[f'r_shannon_{suffix}_{counter}']:
-                                bond_length.r_shannon = float(form.cleaned_data[f'r_shannon_{suffix}_{counter}'])
-                            if form.cleaned_data[f'global_average_{suffix}_{counter}']:
-                                bond_length.global_average = float(form.cleaned_data[f'global_average_{suffix}_{counter}'])
-                            if form.cleaned_data[f'ravg_rglobal_{suffix}_{counter}']:
-                                bond_length.ravg_rglobal = float(form.cleaned_data[f'ravg_rglobal_{suffix}_{counter}'])
-                            if form.cleaned_data[f'ravg_rshannon_{suffix}_{counter}']:
-                                bond_length.ravg_rshannon = float(form.cleaned_data[f'ravg_rshannon_{suffix}_{counter}'])
-                            bond_lengths.append(bond_length)
-                            counter += 1
-                        except ValueError:
-                            return error_and_return(form, compound, f'Could not process bond length {counter} in {subset}.')
+                            # Experimental R assignment
+                            bond_obj.experimental_r = float(form.cleaned_data[f'R_{label}_X_{suffix}'])
+                            bond_obj.save()
+                            bond_objs = models.BondLength.objects.filter(
+                                bond_id=bond_obj.bond_id,
+                                experimental_r__isnull=False)
+                            # Averaged R assignment
+                            avg_r = bond_objs.aggregate(Avg('experimental_r'))['experimental_r__avg']
+                            count_r = bond_objs.count()
+                            bond_objs.update(averaged_r=avg_r, counter=count_r)
+                        except:
+                            return error_and_return(form, dataset, f'Can not process experimental_r of {bond_obj.bond_id}.')
+                    else:
+                        bond_obj.save()
+
+                # Shannon R assignment
+                bond_obj_list = models.BondLength.objects.filter(
+                                compound=compound, 
+                                subset=subset).order_by('r_label')
+                if 'r_I' in r_dict and 'r_X' in r_dict:
+                    bond_obj_list.filter(r_label=0).update(shannon_r=r_dict['r_I']+r_dict['r_X'])
+                if 'r_II' in r_dict and 'r_X' in r_dict:
+                    bond_obj_list.filter(r_label=1).update(shannon_r=r_dict['r_II']+r_dict['r_X'])
+                if 'r_IV' in r_dict and 'r_X' in r_dict:
+                    bond_obj_list.filter(r_label=2).update(shannon_r=r_dict['r_IV']+r_dict['r_X'])
+
+
+                # Create tolerance factor objects
+                R_I_X_obj = models.BondLength.objects.filter(compound=compound, subset=subset, r_label=0)[0]
+                R_II_X_obj = models.BondLength.objects.filter(compound=compound, subset=subset, r_label=1)[0]
+                R_IV_X_obj = models.BondLength.objects.filter(compound=compound, subset=subset, r_label=2)[0]
+                fields = ['shannon_r', 'experimental_r', 'averaged_r']
+                for i in range(3):
+                    field = fields[i]
+                    tf_obj = models.ToleranceFactor(
+                        created_by=request.user,
+                        compound=compound,
+                        subset=subset,
+                        data_source=i,
+                        space_group=dataset.space_group)
+                    if getattr(R_I_X_obj, field) and getattr(R_II_X_obj, field):
+                        t_I = math.sqrt((4 + math.sqrt(2)) / 3) * getattr(R_I_X_obj, field) / getattr(R_II_X_obj, field)
+                        setattr(tf_obj, 't_I', t_I)
+                    if getattr(R_IV_X_obj, field) and getattr(R_II_X_obj, field):
+                        t_IV_V = math.sqrt((4 + math.sqrt(2)) / 3) * getattr(R_IV_X_obj, field) / getattr(R_II_X_obj, field)
+                        setattr(tf_obj, 't_IV_V', t_IV_V)
+                    tf_obj.save()              
+
 
             # Normal properties data
             else:
@@ -710,7 +918,7 @@ def submit_data(request):
                                 )
                 except ValueError:
                     return error_and_return(
-                        form, compound, f'Could not process line: {line}')
+                        form, dataset, f'Could not process line: {line}')
 
                 # Fixed properties
                 counter = 1
@@ -734,12 +942,10 @@ def submit_data(request):
                     created_by=request.user, 
                     additional_file=f)
 
-    # Insert the main data into the database
-    models.Datapoint.objects.bulk_create(datapoints)
-    models.LatticeConstant.objects.bulk_create(lattice_constants)
-    models.AtomicCoordinate.objects.bulk_create(atomic_coordinates)
-    models.ToleranceFactor.objects.bulk_create(tolerance_factors)
-    models.BondLength.objects.bulk_create(bond_lengths)
+        # Insert the main data into the database
+        models.Datapoint.objects.bulk_create(datapoints)
+        models.LatticeConstant.objects.bulk_create(lattice_constants)
+        models.AtomicCoordinate.objects.bulk_create(atomic_coordinates)
 
         # # Create static files for Qresp
         # qresp.create_static_files(request, dataset)
@@ -810,29 +1016,13 @@ def submit_data(request):
 #         return Http404
 
 
-# @dataset_author_check
-# def toggle_visibility(request, pk, view_name):
-#     dataset = models.Dataset.objects.get(pk=pk)
-#     dataset.visible = not dataset.visible
-#     dataset.save()
-#     return resolve_return_url(pk, view_name)
-
-
-# @dataset_author_check
-# def toggle_is_figure(request, pk, view_name):
-#     dataset = models.Dataset.objects.get(pk=pk)
-#     dataset.is_figure = not dataset.is_figure
-#     dataset.save()
-#     return resolve_return_url(pk, view_name)
-
-
-# @dataset_author_check
-# def delete_dataset(request, pk, view_name):
-#     """Delete current data set and all associated files."""
-#     return_url = resolve_return_url(pk, view_name)
-#     dataset = models.Dataset.objects.get(pk=pk)
-#     dataset.delete()
-#     return return_url
+@dataset_author_check
+def delete_dataset(request, pk, view_name):
+    """Delete current data set and all associated files."""
+    return_url = resolve_return_url(pk, view_name)
+    dataset = models.Dataset.objects.get(pk=pk)
+    dataset.delete()
+    return return_url
 
 
 # @staff_status_required
@@ -857,49 +1047,62 @@ def autofill_input_data(request):
     return HttpResponse('\n'.join(lines))
 
 
-# def data_for_chart(request, pk):
-#     dataset = models.Dataset.objects.get(pk=pk)
-#     if dataset.primary_unit:
-#         primary_unit_label = dataset.primary_unit.label
-#     else:
-#         primary_unit_label = ''
-#     if dataset.secondary_unit:
-#         secondary_unit_label = dataset.secondary_unit.label
-#     else:
-#         secondary_unit_label = ''
-#     response = {'primary-property': dataset.primary_property.name,
-#                 'primary-unit': primary_unit_label,
-#                 'secondary-property': dataset.secondary_property.name,
-#                 'secondary-unit': secondary_unit_label,
-#                 'data': []}
-#     if dataset.primary_property_label:
-#         response['primary-property'] = dataset.primary_property_label
-#     if dataset.secondary_property_label:
-#         response['secondary-property'] = (
-#             f'{dataset.secondary_property.name} '
-#             f'({dataset.secondary_property_label})')
-#     for subset in dataset.subsets.all():
-#         response['data'].append({})
-#         this_subset = response['data'][-1]
-#         this_subset['subset-label'] = subset.label
-#         fixed_values = []
-#         for value in models.NumericalValueFixed.objects.filter(subset=subset):
-#             fixed_values.append(f' {value.physical_property} = '
-#                                 f'{value.formatted()} {value.unit}')
-#         if this_subset['subset-label']:
-#             this_subset['subset-label'] = (
-#                 f"{this_subset['subset-label']}:{','.join(fixed_values)}")
-#         else:
-#             this_subset['subset-label'] = (','.join(fixed_values)).lstrip()
-#         this_subset['subset-label'] += (
-#             f' ({models.Subset.CRYSTAL_SYSTEMS[subset.crystal_system][1]})')
-#         values = models.NumericalValue.objects.filter(
-#             datapoint__subset=subset).order_by(
-#                 'datapoint_id', 'qualifier').values_list('value', flat=True)
-#         this_subset['values'] = []
-#         for i in range(0, len(values), 2):
-#             this_subset['values'].append({'y': values[i], 'x': values[i+1]})
-#     return JsonResponse(response)
+def data_for_tf(request, data_source):
+    response = {'data-source': data_source,
+                'data': []}
+    space_groups = ['I-42m', 'I222', 'Ama2', 'P31', 'Ama2+']
+    # for space_group in space_groups:
+    #     datapoints = models.ToleranceFactor.objects.filter(data_source=data_source, space_group=space_group)
+    #     if datapoints:  
+    #         response['data'].append({})
+    #         dataset = response['data'][-1]
+    #         dataset['space-group'] = space_group
+    #         dataset['values'] = []
+    #         for datapoint in datapoints:
+    #             datapoint['values'].append({'x': datapoint.t_I, 'y': datapoint.t_IV_V})
+    response['data'] = [
+        {
+            'space-group': 'I-42m',
+            'compounds': ['Ag2BaSiSe4', 'Li2BaGeS4'],
+            'values': [
+                {'x': 1.18, 'y': 0.89},
+                {'x': 1, 'y': 0.92},
+            ]
+        },
+        {
+            'space-group': 'I222',
+            'compounds': ['Ag2BaGeSe4', 'Ag2BaSnS4'],
+            'values': [
+                {'x': 1.18, 'y': 0.94},
+                {'x': 1.17, 'y': 0.98},
+            ]
+        },
+        {
+            'space-group': 'Ama2',
+            'compounds': ['Cu2BaSnSe4', 'Cu2SrGeSe4'],
+            'values': [
+                {'x': 1.02, 'y': 1},
+                {'x': 1.07, 'y': 0.98},
+            ]
+        },
+        {
+            'space-group': 'P31',
+            'compounds': ['Cu2BaGeS4', 'Cu2SrSnS4'],
+            'values': [
+                {'x': 1.01, 'y': 0.92},
+                {'x': 1.06, 'y': 1.04},
+            ]
+        },
+        {
+            'space-group': 'Ama2+',
+            'compounds': ['Ag2PbGeS4'],
+            'values': [
+                {'x': 1.06, 'y': 1.04},
+                {'x': 1.22, 'y': 0.96},
+            ]
+        },
+    ]
+    return JsonResponse(response)
 
 
 # def get_subset_values(request, pk):
@@ -919,31 +1122,6 @@ def autofill_input_data(request):
 #     for i in range(y_len, total_len):
 #         response[i-y_len]['x'] = values[i].formatted()
 #     return JsonResponse(response, safe=False)
-
-
-# def get_atomic_coordinates(request, pk):
-#     return JsonResponse(utils.atomic_coordinates_as_json(pk))
-
-
-# def get_jsmol_input(request, pk):
-#     """Return a statement to be executed by JSmol.
-
-#     Go through the atomic structure data subsets of the representative
-#     data set of the given system. Pick the first one that comes with a
-#     geometry file and construct the "load data ..." statement for
-#     JSmol. If there are no geometry files return an empty response.
-
-#     """
-#     dataset = models.Dataset.objects.get(pk=pk)
-#     if not dataset:
-#         return HttpResponse()
-#     if dataset.input_files.exists():
-#         filename = os.path.basename(
-#             dataset.input_files.first().dataset_file.path)
-#         return HttpResponse(
-#             f'load /media/data_files/dataset_{dataset.pk}/{filename} '
-#             '{1 1 1}')
-#     return HttpResponse()
 
 
 # def report_issue(request):
@@ -971,97 +1149,7 @@ def autofill_input_data(request):
 #     return redirect(request.POST['return-path'])
 
 
-# def extract_k_from_control_in(request):
-#     """Extract the k-point path from the provided control.in."""
-#     content = UploadedFile(request.FILES['file']).read().decode('utf-8')
-#     k_labels = []
-#     for line in content.splitlines():
-#         if re.match(r' *output\b\s* band', line):
-#             words = line.split()
-#             k_labels.append(f'{words[-2]} {words[-1]}')
-#     return HttpResponse('\n'.join(k_labels))
 
-
-# def prefilled_form(request, pk):
-#     """Return a mostly filled form as json.
-
-#     The form is filled based on data set pk. Fields such the actual
-#     numerical values are not filled in.
-
-#     """
-#     def pk_or_none(obj):
-#         if obj:
-#             return obj.pk
-#         return None
-
-#     def bool_to_text(value):
-#         """Return boolean as text.
-
-#         Due to the way the templating system work, this is required
-#         for certain inputs.
-
-#         """
-#         if value:
-#             return 'True'
-#         return 'False'
-#     dataset = get_object_or_404(models.Dataset, pk=pk)
-#     form = {
-#         'values': {
-#             'select_reference': pk_or_none(dataset.reference),
-#             'select_system': dataset.system.pk,
-#             'primary_property': dataset.primary_property.pk,
-#             'primary_unit': pk_or_none(dataset.primary_unit),
-#             'secondary_property': pk_or_none(dataset.secondary_property),
-#             'secondary_unit': pk_or_none(dataset.secondary_unit),
-#             'caption': dataset.caption,
-#             'extraction_method': dataset.extraction_method,
-#             'primary_property_label': dataset.primary_property_label,
-#             'secondary_property_label': dataset.secondary_property_label,
-#             'is_figure': dataset.is_figure,
-#             'visible_to_public': dataset.visible,
-#             'two_axes': bool(dataset.secondary_property),
-#             'origin_of_data': ('is_experimental' if dataset.is_experimental
-#                                else 'is_theoretical'),
-#             'sample_type': dataset.sample_type,
-#             'dimensionality_of_the_inorganic_component': (
-#                 dataset.dimensionality),
-#             'with_synthesis_details': bool_to_text(dataset.synthesis.exists()),
-#             'with_experimental_details': bool_to_text(
-#                 dataset.experimental.exists()),
-#             'with_computational_details': bool_to_text(
-#                 dataset.computational.exists())
-#         },
-#     }
-
-#     def change_key(dictionary, key_old, key_new):
-#         dictionary[key_new] = dictionary[key_old]
-#         del dictionary[key_old]
-
-#     if dataset.synthesis.exists():
-#         synthesis = dataset.synthesis.first()
-#         for field in filter(lambda field: type(field) is TextField,
-#                             models.SynthesisMethod._meta.get_fields()):
-#             form['values'][field.name] = getattr(synthesis, field.name)
-#         change_key(form['values'], 'description', 'synthesis_description')
-#         if hasattr(synthesis, 'comment'):
-#             form['values']['synthesis_comment'] = synthesis.comment.text
-#     if dataset.experimental.exists():
-#         experimental = dataset.experimental.first()
-#         for field in filter(lambda field: type(field) is TextField,
-#                             models.ExperimentalDetails._meta.get_fields()):
-#             form['values'][field.name] = getattr(experimental, field.name)
-#         change_key(form['values'], 'method', 'experimental_method')
-#         change_key(form['values'], 'description', 'experimental_description')
-#         if hasattr(experimental, 'comment'):
-#             form['values']['experimental_comment'] = experimental.comment.text
-#     if dataset.computational.exists():
-#         comp = dataset.computational.first()
-#         for field in filter(lambda field: type(field) is TextField,
-#                             models.ComputationalDetails._meta.get_fields()):
-#             form['values'][field.name] = getattr(comp, field.name)
-#         if hasattr(comp, 'comment'):
-#             form['values']['computational_comment'] = comp.comment.text
-#     return JsonResponse(form)
 
 
 # class MintDoiView(StaffStatusMixin, generic.TemplateView):
