@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     'raven.contrib.django.raven_compat',
     'nested_admin',
     'rest_framework',
+    'import_export',
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
@@ -219,3 +221,6 @@ REST_FRAMEWORK = {
 # Tests
 
 SELENIUM_DRIVER = config('SELENIUM_DRIVER', default='firefox').lower()
+
+# Import-export
+IMPORT_EXPORT_USE_TRANSACTIONS = True
