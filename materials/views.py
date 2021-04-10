@@ -26,6 +26,7 @@ from django.db.models import When
 from django.db.models import Avg
 from django.db.models import Max
 from django.db.models.fields import TextField, FloatField
+from django.forms import ModelChoiceField
 from django.forms.models import model_to_dict
 from django.http import Http404
 from django.http import HttpResponse
@@ -56,7 +57,7 @@ def dataset_author_check(view):
     """Test whether the logged on user is the creator of the data set."""
     @login_required
     def wrap(request, *args, **kwargs):
-        dataset = get_object_or_404(models.Dataset, pk=kwargs['pk'])
+        dataset = get_object_or_404(models.Dataset, pk=kwargs['dataset_pk'])
         if dataset.created_by == request.user:
             return view(request, *args, **kwargs)
         else:
@@ -129,18 +130,21 @@ class SearchFormView(generic.TemplateView):
             systems_info = []
             if search_term == 'formula':
                 compounds = models.Compound.objects.filter(
-                    formula__icontains=search_text).order_by(
+                    formula__icontains=search_text).exclude(
+                    datasets__isnull=True).order_by(
                         'formula')
             elif search_term == 'primary_property':
                 compounds = models.Compound.objects.filter(
-                    datasets__primary_property__name__icontains=search_text).order_by(
+                    datasets__primary_property__name__icontains=search_text).exclude(
+                    datasets__isnull=True).order_by(
                     'formula')
             elif search_term == 'author':
                 keywords = search_text.split()
                 query = reduce(operator.or_, (
                     Q(datasets__subsets__reference__authors__last_name__icontains=x) for
                     x in keywords))
-                compounds = models.Compound.objects.filter(query).distinct()
+                compounds = models.Compound.objects.filter(query).exclude(
+                    datasets__isnull=True).distinct()
             else:
                 raise KeyError('Invalid search term.')
             compounds_map = []
@@ -227,8 +231,6 @@ def dataset_details(request, pk=None):
         computational['Numerical accuracy'] = obj.computational.first().numerical_accuracy
         if obj.computational.first().repositories.exists():
             computational['External repositories'] = [x.url for x in obj.computational.first().repositories.all()]
-        else:
-            computational['External repositories'] = []
         computational['Comment'] = obj.computational.first().comment.text if hasattr(obj.computational.first(), 'comment') else ''
 
     # subset data
@@ -270,7 +272,6 @@ def dataset_details(request, pk=None):
                 if s.tolerance_factors.first():
                     subset['tolerance factors'] = s.get_tolerance_factors()
             else:
-                subset['fixed properties'] = []
                 if s.fixed_values.first():
                     subset['fixed properties'] = s.get_fixed_properties()  
             data.append(subset)         
@@ -308,16 +309,17 @@ def data_for_chart(request, pk):
                     'y unit': obj.y_unit,
                     'data': []}
     for curve in subset.curves.all():
-        data = {
-            'legend': curve.legend,
-            'values': []
-        }
-        for value in curve.datapoints.all():
-            data['values'].append({
-                'x': value.x_value,
-                'y': value.y_value,
-            })
-        response['data'].append(data)
+        if curve.datapoints.exists():
+            data = {
+                'legend': curve.legend,
+                'values': []
+            }
+            for value in curve.datapoints.all():
+                data['values'].append({
+                    'x': value.x_value,
+                    'y': value.y_value,
+                })
+            response['data'].append(data)
     return JsonResponse(response)
 
 
@@ -421,6 +423,11 @@ class UpdateDatasetView(StaffStatusMixin, generic.TemplateView):
         main_form.fields['number_of_subsets'].initial = len(subsets)
         data = []
         for i, subset in enumerate(subsets):
+            if subset.reference:
+                main_form.fields[f'select_reference_1_{i+1}'] = ModelChoiceField(
+                                                        required=False,
+                                                        queryset=models.Reference.objects.all(),
+                                                        initial=subset.reference.pk)
             d = {}
             if dataset.primary_property.name == 'atomic structure':
                 lattice = subset.lattice_constants.first()
@@ -436,7 +443,6 @@ class UpdateDatasetView(StaffStatusMixin, generic.TemplateView):
                              + ' ' + str(coord.coord_3) + ' ' + coord.element + '\n'
                         lines += line
                     d[f'atomic_coordinates_1_{i+1}'] = lines
-            
             elif dataset.primary_property.name == 'tolerance factor related parameters':
                 for shannon in subset.shannon_ionic_radiis.all():
                     element_label = models \
@@ -455,12 +461,45 @@ class UpdateDatasetView(StaffStatusMixin, generic.TemplateView):
                     d[f'R_{label}_X_1_{i+1}'] = bond.experimental_r if bond.experimental_r else ""
                 print(d)
             else:
-                pass
+                # data for chart
+                chart = subset.curves.first()
+                if chart:
+                    d[f'x_title_1_{i+1}'] = chart.x_title
+                    d[f'x_unit_1_{i+1}'] = chart.x_unit
+                    d[f'y_title_1_{i+1}'] = chart.y_title
+                    d[f'y_unit_1_{i+1}'] = chart.y_unit
+                    d[f'number_of_curves_1_{i+1}'] = len(subset.curves.all())
+                for curve in subset.curves.all():
+                    d[f'legend_1_{i+1}_{curve.curve_counter}'] = curve.legend
+                    y_list = list(curve.datapoints.all().values_list('y_value', flat=True))
+                    y_values = ['%.5g' % y for y in y_list]
+                    if curve.curve_counter == 1:
+                        x_list = list(curve.datapoints.all().values_list('x_value', flat=True))
+                        x_values = ['%.5g' % x for x in x_list]
+                        datapoints = [" ".join(t) for t in zip(x_values, y_values)]
+                    else:
+                        datapoints = [" ".join(t) for t in zip(datapoints, y_values)]
+                        
+                d[f'datapoints_1_{i+1}'] = "\n".join(datapoints)
+
+                # fixed properties
+                # i_dataset, i_subset, counter, prop, unit, sign, value
+                if subset.fixed_values.exists():
+                    fixed_values = []
+                    for fixed in subset.fixed_values.all():
+                        fixed_values.append({
+                            'i_subset': i + 1,
+                            'counter': fixed.counter,
+                            'property': fixed.fixed_property.pk,
+                            'unit': fixed.unit.pk,
+                            'sign': fixed.value_type,
+                            'value': fixed.value,
+                        })
+
+                    d['fixed_values'] = fixed_values
 
             data.append(d)
-
-
-
+            print(data)
 
         return render(request, self.template_name, {
             'formula': formula,
@@ -489,7 +528,9 @@ class ToleranceFactorView(StaffStatusMixin, generic.TemplateView):
     template_name='materials/tolerance_factor.html'
 
     def get(self, request):
+        compounds = models.ToleranceFactor.objects.all().values_list('compound__formula', 'compound__pk').distinct()
         return render(request, self.template_name, {
+            'compounds': compounds,
             'base_template': 'materials/base.html',
             })
 
@@ -638,6 +679,8 @@ def submit_data(request):
         dataset.sample_type = form.cleaned_data[f'sample_type_{i_dataset}']
         dataset.crystal_system = form.cleaned_data[f'crystal_system_{i_dataset}']
         dataset.space_group = form.cleaned_data[f'space_group_{i_dataset}']
+        if f'update_comments_{i_dataset}' in form.cleaned_data:
+            dataset.update_comments = form.cleaned_data[f'update_comments_{i_dataset}']
         dataset.save()
         logger.info(f'Create dataset #{dataset.pk}')
         if form.cleaned_data[f'with_synthesis_details_{i_dataset}']:
@@ -836,6 +879,18 @@ def submit_data(request):
                             bond_objs.update(averaged_r=avg_r, counter=count_r)
                         except:
                             return error_and_return(form, dataset, f'Can not process experimental_r of {bond_obj.bond_id}.')
+                    elif models.BondLength.objects.filter(
+                                bond_id=bond_obj.bond_id,
+                                experimental_r__isnull=False):
+                        bond_objs = models.BondLength.objects.filter(
+                                bond_id=bond_obj.bond_id,
+                                experimental_r__isnull=False)
+                        bond_obj.averaged_r = bond_objs[0].averaged_r
+                        count_r = bond_objs.count()
+                        count_r += 1
+                        bond_objs.update(counter=count_r)
+                        bond_obj.counter = count_r
+                        bond_obj.save()
                     else:
                         bond_obj.save()
 
@@ -989,38 +1044,27 @@ def submit_data(request):
         return redirect(reverse('materials:add_data'))
 
 
-# def resolve_return_url(pk, view_name):
-#     """Determine URL from the view name and other arguments.
+def resolve_return_url(pk, view_name):
+    """Determine URL from the view name and other arguments.
 
-#     This is useful for the data set buttons such as delete, which can
-#     then return to the same address.
+    This is useful for the data set buttons such as delete, which can
+    then return to the same address.
 
-#     """
-#     if view_name == 'dataset':
-#         return redirect(reverse('materials:dataset', kwargs={'pk': pk}))
-#     elif view_name == 'reference':
-#         ref_pk = models.Dataset.objects.get(pk=pk).reference.pk
-#         return redirect(reverse('materials:reference', kwargs={'pk': ref_pk}))
-#     elif view_name == 'system':
-#         sys_pk = models.Dataset.objects.get(pk=pk).system.pk
-#         return redirect(reverse('materials:system', kwargs={'pk': sys_pk}))
-#     elif view_name == 'property_all_entries':
-#         sys_pk = models.Dataset.objects.get(pk=pk).system.pk
-#         prop_pk = models.Dataset.objects.get(pk=pk).primary_property.pk
-#         return redirect(reverse(
-#             'materials:property_all_entries',
-#             kwargs={'system_pk': sys_pk, 'prop_pk': prop_pk}))
-#     elif view_name == 'linked_data':
-#         return redirect(reverse('materials:linked_data', kwargs={'pk': pk}))
-#     else:
-#         return Http404
+    """
+    if view_name == 'compound':
+        return redirect(reverse('materials:compound', kwargs={'pk': pk}))
+    # elif view_name == 'reference':
+    #     ref_pk = models.Dataset.objects.get(pk=pk).reference.pk
+    #     return redirect(reverse('materials:reference', kwargs={'pk': ref_pk}))
+    else:
+        return Http404
 
 
 @dataset_author_check
-def delete_dataset(request, pk, view_name):
+def delete_dataset(request, compound_pk, dataset_pk, view_name):
     """Delete current data set and all associated files."""
-    return_url = resolve_return_url(pk, view_name)
-    dataset = models.Dataset.objects.get(pk=pk)
+    return_url = resolve_return_url(compound_pk, view_name)
+    dataset = models.Dataset.objects.get(pk=dataset_pk)
     dataset.delete()
     return return_url
 
@@ -1047,61 +1091,29 @@ def autofill_input_data(request):
     return HttpResponse('\n'.join(lines))
 
 
-def data_for_tf(request, data_source):
+def data_for_tf(request, data_source, compound_pk):
     response = {'data-source': data_source,
                 'data': []}
-    space_groups = ['I-42m', 'I222', 'Ama2', 'P31', 'Ama2+']
-    # for space_group in space_groups:
-    #     datapoints = models.ToleranceFactor.objects.filter(data_source=data_source, space_group=space_group)
-    #     if datapoints:  
-    #         response['data'].append({})
-    #         dataset = response['data'][-1]
-    #         dataset['space-group'] = space_group
-    #         dataset['values'] = []
-    #         for datapoint in datapoints:
-    #             datapoint['values'].append({'x': datapoint.t_I, 'y': datapoint.t_IV_V})
-    response['data'] = [
-        {
-            'space-group': 'I-42m',
-            'compounds': ['Ag2BaSiSe4', 'Li2BaGeS4'],
-            'values': [
-                {'x': 1.18, 'y': 0.89},
-                {'x': 1, 'y': 0.92},
-            ]
-        },
-        {
-            'space-group': 'I222',
-            'compounds': ['Ag2BaGeSe4', 'Ag2BaSnS4'],
-            'values': [
-                {'x': 1.18, 'y': 0.94},
-                {'x': 1.17, 'y': 0.98},
-            ]
-        },
-        {
-            'space-group': 'Ama2',
-            'compounds': ['Cu2BaSnSe4', 'Cu2SrGeSe4'],
-            'values': [
-                {'x': 1.02, 'y': 1},
-                {'x': 1.07, 'y': 0.98},
-            ]
-        },
-        {
-            'space-group': 'P31',
-            'compounds': ['Cu2BaGeS4', 'Cu2SrSnS4'],
-            'values': [
-                {'x': 1.01, 'y': 0.92},
-                {'x': 1.06, 'y': 1.04},
-            ]
-        },
-        {
-            'space-group': 'Ama2+',
-            'compounds': ['Ag2PbGeS4'],
-            'values': [
-                {'x': 1.06, 'y': 1.04},
-                {'x': 1.22, 'y': 0.96},
-            ]
-        },
-    ]
+    for space_group in models.SpaceGroup.objects.all():
+        if compound_pk:
+            datapoints = models.ToleranceFactor.objects.filter(
+                data_source=data_source,
+                space_group=space_group,
+                compound__pk=compound_pk)
+        else:  
+            datapoints = models.ToleranceFactor.objects.filter(data_source=data_source, space_group=space_group)
+        if datapoints:  
+            response['data'].append({})
+            dataset = response['data'][-1]
+            dataset['space-group'] = space_group.name
+            dataset['compounds'] = list(datapoints.values_list('compound__formula', 'compound__pk'))
+            dataset['values'] = []
+            for datapoint in datapoints:
+                dataset['values'].append({
+                    'x': '%.4f' % datapoint.t_I if datapoint.t_I else None, 
+                    'y': '%.4f' % datapoint.t_IV_V if datapoint.t_IV_V else None,
+                })
+
     return JsonResponse(response)
 
 
