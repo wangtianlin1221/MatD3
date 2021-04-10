@@ -72,6 +72,7 @@ for (let element of document.getElementsByClassName('choose-version')) {
       .then(response => {
         let data = response['data'];
         // general
+        document.getElementById('general_card_' + property_pk).hidden = false;
         let general_el = document.getElementById('id_general_' + property_pk);
         general_el.innerHTML = "";
         for (let [key, value] of Object.entries(data['general'])) {
@@ -81,27 +82,35 @@ for (let element of document.getElementsByClassName('choose-version')) {
         }
         // synthesis/ experimental/ computational
         for (let title of ['synthesis', 'experimental', 'computational']) {
-          let el = document.getElementById(`${title}-body-${property_pk}`)
-                           .getElementsByClassName('card-body')[0];
-          el.innerHTML = "";
-          for (let [key, value] of Object.entries(data[title])) {
-            let p = document.createElement('p');
-            if (key === 'External repositories') {
-              p.innerHTML = `<strong>${key}:</strong> `;
-              let ul = document.createElement('ul');
-              for (let repo of data[title][key]) {
-                let li = document.createElement('li');
-                li.innerHTML = `<a href=${repo}>${repo}</a>`;
-                ul.appendChild(li);
+          if (Object.entries(data[title]).length !== 0) {
+            document.getElementById(`${title}-card-${property_pk}`).hidden = false;
+            let el = document.getElementById(`${title}-body-${property_pk}`)
+                             .getElementsByClassName('card-body')[0];
+            el.innerHTML = "";
+            for (let [key, value] of Object.entries(data[title])) {
+              if (value !== "") {
+                let p = document.createElement('p');
+                if (key === 'External repositories') {
+                  p.innerHTML = `<strong>${key}:</strong> `;
+                  let ul = document.createElement('ul');
+                  for (let repo of data[title][key]) {
+                    let li = document.createElement('li');
+                    li.innerHTML = `<a href=${repo}>${repo}</a>`;
+                    ul.appendChild(li);
+                  }
+                  p.appendChild(ul);
+                } else {
+                  p.innerHTML = `<strong>${key}:</strong> ${data[title][key]}`;
+                }
+                el.appendChild(p);
               }
-              p.appendChild(ul);
-            } else {
-              p.innerHTML = `<strong>${key}:</strong> ${data[title][key]}`;
             }
-            el.appendChild(p);
+          } else {
+            document.getElementById(`${title}-card-${property_pk}`).hidden = true;
           }
         }
         // data (subsets)
+        document.getElementById('subsets_card_' + property_pk).hidden = false;
         let data_el = document.getElementById('id_subsets_' + property_pk);
         data_el.innerHTML = "";
         for (let [index, subset] of Object.entries(data['data'])) {
@@ -244,42 +253,45 @@ for (let element of document.getElementsByClassName('choose-version')) {
             root_el.appendChild(canvas);
 
             // fixed properties
-            let fix_h = document.createElement('h5');
-            fix_h.innerHTML = "<strong>Fixed properties: </strong>";
-            root_el.appendChild(fix_h);
-            let fix_t = document.createElement('table');
-            fix_t.className = "table table-sm";
-            let fix = subset['fixed properties'];
-            if (fix.length > 0) {
-              let tr, th, td;
-                  tr = document.createElement('tr');
-                  for (let k of Object.keys(fix[0])) {
-                    th = document.createElement('th');
-                    th.innerHTML = `${k}`;
-                    th.scope = "col";
-                    tr.append(th);
-                  }
-                  fix_t.append(tr);
-                  for (let b of fix) {
+            if ('fixed properties' in subset) {
+              let fix_h = document.createElement('h5');
+              fix_h.innerHTML = "<strong>Fixed properties: </strong>";
+              root_el.appendChild(fix_h);
+              let fix_t = document.createElement('table');
+              fix_t.className = "table table-sm";
+              let fix = subset['fixed properties'];
+              if (fix.length > 0) {
+                let tr, th, td;
                     tr = document.createElement('tr');
-                    for (let v of Object.values(b)) {
-                      td = document.createElement('td');
-                      td.innerHTML = `${v}`;
-                      td.style = 'text-align:left';
-                      tr.append(td);
+                    for (let k of Object.keys(fix[0])) {
+                      th = document.createElement('th');
+                      th.innerHTML = `${k}`;
+                      th.scope = "col";
+                      tr.append(th);
                     }
                     fix_t.append(tr);
-                  }
-            } else {
-              fix_t.innerHTML = "No fixed properties for this subset.";
+                    for (let b of fix) {
+                      tr = document.createElement('tr');
+                      for (let v of Object.values(b)) {
+                        td = document.createElement('td');
+                        td.innerHTML = `${v}`;
+                        td.style = 'text-align:left';
+                        tr.append(td);
+                      }
+                      fix_t.append(tr);
+                    }
+              } else {
+                fix_t.innerHTML = "No fixed properties for this subset.";
+              }
+              root_el.appendChild(fix_t);
             }
-            root_el.appendChild(fix_t);
+
             card_body.appendChild(root_el);
           }
           
 
           // additional files
-          if (subset['additional files']) {
+          if (subset['additional files'].length !== 0) {
             let fs = subset['additional files'];
             let fs_h = document.createElement('h5');
             fs_h.innerHTML = "<strong>Additional files: </strong>";
@@ -287,7 +299,7 @@ for (let element of document.getElementsByClassName('choose-version')) {
             let fs_el = document.createElement('ul');
             for (let f of fs) {
               let f_el = document.createElement('li');
-              f_el.innerHTML = `<a href="">${f['name']}</a>`;
+              f_el.innerHTML = `<a href="", target="_blank">${f['name']}</a>`;
               f_el.firstChild.href = f['path'];
               fs_el.appendChild(f_el);
             }
@@ -295,7 +307,7 @@ for (let element of document.getElementsByClassName('choose-version')) {
           }
 
           // reference
-          if (subset['reference']) {
+          if (Object.entries(subset['reference']).length !== 0) {
             let ref = subset['reference'];
             let ref_el = document.createElement('div');
             let ref_head = document.createElement('h5');
@@ -321,17 +333,22 @@ for (let element of document.getElementsByClassName('choose-version')) {
           card.appendChild(card_body);
           data_el.appendChild(card);
         }
+
         for (let element of document.getElementsByTagName('canvas')) {
           const plot_id = element.id;
           const plot_pk = plot_id.split('id_chart_')[1];
           axios
             .get('/materials/data-for-chart/' + plot_pk)
             .then(response => {
-              plot_data(plot_id, response['data']['data'],
-                        response['data']['x title'],
-                        response['data']['x unit'],
-                        response['data']['y title'],
-                        response['data']['y unit']);
+              if (Object.entries(response['data']['data']).length !== 0) {
+                plot_data(plot_id, response['data']['data'],
+                          response['data']['x title'],
+                          response['data']['x unit'],
+                          response['data']['y title'],
+                          response['data']['y unit']);
+              } else {
+                element.style.display = "none";
+              }
             });
         }
       });

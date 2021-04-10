@@ -49,7 +49,7 @@ function plot_tf(element, data_all, title) {
       tooltips: {
       	callbacks: {
       		title: function(tooltipItem, data) {
-      			var title = data_all[tooltipItem[0].datasetIndex]['compounds'][tooltipItem[0].index];
+      			var title = data_all[tooltipItem[0].datasetIndex]['compounds'][tooltipItem[0].index][0];
       			return title;
       		},
       		label: function(tooltipItem, data) {
@@ -63,16 +63,50 @@ function plot_tf(element, data_all, title) {
   
   element.onclick = function (evt) {
     const point = chart.getElementAtEvent(evt)[0];
-    alert(point._datasetIndex);
-    // window.open('/materials/');
+    if (point !== undefined) {
+      let compound = data_all[point._datasetIndex]['compounds'][point._index][1];
+      // alert(point._datasetIndex);
+      window.open('/materials/' + compound);
+    }
+    
   };
 }
 
+document
+.getElementById('compound')
+.addEventListener('change', function() {
+  axios
+    .get('/materials/tolerance-factor-chart/0/' + this.value)
+    .then(response => {
+      const plot_el = document.getElementById('shannon_tf_chart_1');
+      plot_tf(plot_el, response['data']['data'], 'Shannon Based Tolerance Factor');
+    });
+
+  axios
+    .get('/materials/tolerance-factor-chart/1/' + this.value)
+    .then(response => {
+      const plot_el = document.getElementById('experimental_tf_chart_1');
+      plot_tf(plot_el, response['data']['data'], 'Experimental Tolerance Factor');
+    });
+
+  axios
+    .get('/materials/tolerance-factor-chart/2/' + this.value)
+    .then(response => {
+      const plot_el = document.getElementById('averaged_tf_chart_1');
+      plot_tf(plot_el, response['data']['data'], 'Averaged Tolerance Factor');
+    });
+});
+document.getElementById('compound').dispatchEvent(new Event('change'));
+
 
 function reset_tf_charts() {
-	document.getElementById('shannon_tf_chart').hidden = true;
-	document.getElementById('experimental_tf_chart').hidden = true;
-	document.getElementById('averaged_tf_chart').hidden = true;
+  document.getElementById('shannon_tf_chart').hidden = true;
+  document.getElementById('experimental_tf_chart').hidden = true;
+  document.getElementById('averaged_tf_chart').hidden = true;
+
+  document.getElementById('shannon_tf_chart').className = "col-md-4";
+  document.getElementById('experimental_tf_chart').className = "col-md-4";
+  document.getElementById('averaged_tf_chart').className = "col-md-4";
 }
 
 const shannon_tf_button = document.getElementById('shannon-tf-button');
@@ -81,11 +115,7 @@ shannon_tf_button.addEventListener('click', event => {
   reset_tf_charts();
   const plot_el = document.getElementById('shannon_tf_chart');
   plot_el.hidden = false;
-  axios
-    .get('/materials/tolerance-factor-chart/0')
-    .then(response => {
-    	plot_tf(plot_el, response['data']['data'], 'Shannon Based Tolerance Factor');
-    });
+  plot_el.className = "col-md-12";
 });
 
 const experimental_tf_button = document.getElementById('experimental-tf-button');
@@ -94,11 +124,7 @@ experimental_tf_button.addEventListener('click', event => {
   reset_tf_charts();
   const plot_el = document.getElementById('experimental_tf_chart');
   plot_el.hidden = false;
-  axios
-    .get('/materials/tolerance-factor-chart/1')
-    .then(response => {
-    	plot_tf(plot_el, response['data']['data'], 'Experimental Tolerance Factor');
-    });
+  plot_el.className = "col-md-12";
 });
 
 const averaged_tf_button = document.getElementById('averaged-tf-button');
@@ -107,10 +133,14 @@ averaged_tf_button.addEventListener('click', event => {
   reset_tf_charts();
   const plot_el = document.getElementById('averaged_tf_chart');
   plot_el.hidden = false;
-  axios
-    .get('/materials/tolerance-factor-chart/2')
-    .then(response => {
-    	plot_tf(plot_el, response['data']['data'], 'Averaged Tolerance Factor');
-    });
+  plot_el.className = "col-md-12";
 });
 
+const compared_button = document.getElementById('compared-button');
+compared_button.addEventListener('click', event => {
+  event.preventDefault();
+  reset_tf_charts();
+  document.getElementById('shannon_tf_chart').hidden = false;
+  document.getElementById('experimental_tf_chart').hidden = false;
+  document.getElementById('averaged_tf_chart').hidden = false;
+});

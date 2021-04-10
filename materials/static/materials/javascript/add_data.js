@@ -48,6 +48,7 @@ function SelectEntryHandler(entry_type, label_name, post_url) {
   this.add_new_entry = () => {
     delete_all_messages();
     const form_data = new FormData(this.form);
+    console.log(form_data);
     const label_name = this.selectize_label_name;
     axios
       .post(this.post_url, form_data)
@@ -55,7 +56,7 @@ function SelectEntryHandler(entry_type, label_name, post_url) {
         this.card.hidden = true;
         // Update all dropdowns of the current type
         for (let select_name in selectized) {
-          if (select_name.includes(this.entry_type) || select_name.includes('space_group')) {
+          if (select_name.includes(this.entry_type)) {
             if (this.entry_type === 'reference') {
               let article = response.data;
               let text =
@@ -113,7 +114,7 @@ const new_property_handler =
 const new_unit_handler =
   new SelectEntryHandler('unit', 'label', '/materials/units/');
 const new_space_group_handler = 
-  new SelectEntryHandler('space-group', 'name', '/materials/space-groups/');
+  new SelectEntryHandler('space_group', 'name', '/materials/space-groups/');
 
 
 // All dropdown menus are filled asynchronously
