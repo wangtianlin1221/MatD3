@@ -19,10 +19,7 @@ from mainproject import settings
 settings.MEDIA_ROOT += '_tests'
 
 User = get_user_model()
-dataset_template = models.Dataset(visible=True,
-                                  is_figure=False,
-                                  is_experimental=True,
-                                  dimensionality=3,
+dataset_template = models.Dataset(is_experimental=True,
                                   sample_type=models.Dataset.SINGLE_CRYSTAL)
 
 
