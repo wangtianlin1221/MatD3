@@ -14,6 +14,53 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RemoveField(
+            model_name='bondlength',
+            name='bond_counter',
+        ),
+        migrations.RemoveField(
+            model_name='bondlength',
+            name='global_average',
+        ),
+        migrations.RemoveField(
+            model_name='bondlength',
+            name='r_avg',
+        ),
+        migrations.RemoveField(
+            model_name='bondlength',
+            name='r_shannon',
+        ),
+        migrations.RemoveField(
+            model_name='bondlength',
+            name='ravg_rglobal',
+        ),
+        migrations.RemoveField(
+            model_name='bondlength',
+            name='ravg_rshannon',
+        ),
+        migrations.RemoveField(
+            model_name='tolerancefactor',
+            name='t_1',
+        ),
+        migrations.RemoveField(
+            model_name='tolerancefactor',
+            name='t_4',
+        ),
+        migrations.AddField(
+            model_name='bondlength',
+            name='bond_id',
+            field=models.CharField(blank=True, max_length=20),
+        ),
+        migrations.AddField(
+            model_name='bondlength',
+            name='bond_length',
+            field=models.FloatField(blank=True, null=True),
+        ),
+        migrations.AddField(
+            model_name='tolerancefactor',
+            name='t_I',
+            field=models.FloatField(blank=True, null=True),
+        ),
         migrations.AddField(
             model_name='bondlength',
             name='compound',
