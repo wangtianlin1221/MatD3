@@ -358,6 +358,7 @@ class AddDataForm(forms.Form):
         'and each of the following column corresponds to y-axis.')
     fixed_sign = forms.ChoiceField(
         required=False,
+        label="Sign",
         choices=(models.FixedPropertyValue.VALUE_TYPES),
         widget=forms.Select(attrs={'class': 'form-control'}),
         help_text='Choose the sign.')
@@ -779,6 +780,7 @@ class AddDataForm(forms.Form):
                 elif key.startswith('fixed_sign_'):
                     self.fields[key] = forms.ChoiceField(
                         required=False,
+                        label="Sign",
                         initial=value,
                         choices=(models.FixedPropertyValue.VALUE_TYPES),
                         widget=forms.Select())
@@ -914,7 +916,7 @@ class AddDataForm(forms.Form):
                         self.fields[key] = AutoCharField(
                             widget=forms.TextInput(),
                             initial=value)
-                elif key == 'update_comments':
+                elif key.startswith('update_comments_'):
                     self.fields[key] = AutoCharField(
                             widget=forms.TextInput(),
                             initial=value)
@@ -993,24 +995,5 @@ class AddDataForm(forms.Form):
                                 self.fields[f'fixed_unit_{suffix}'].initial,
                                 self.fields[f'fixed_sign_{suffix}'].initial,
                                 self.fields[f'fixed_value_{suffix}'].initial])
-        return results
-
-
-    def get_bond_lengths(self):
-        """Return a list of bond lengths and their current values."""
-        results = []
-        for field in self.fields:
-            if field.startswith('element_a_'):
-                suffix = field.split('element_a_')[1];
-                i_dataset, i_subset, counter = suffix.split('_')
-                results.append([i_dataset, i_subset, counter,
-                    self.fields[field].initial,
-                    self.fields[f'element_b_{suffix}'].initial,
-                    self.fields[f'r_avg_{suffix}'].initial,
-                    self.fields[f'r_shannon_{suffix}'].initial,
-                    self.fields[f'global_average_{suffix}'].initial,
-                    self.fields[f'ravg_rglobal_{suffix}'].initial,
-                    self.fields[f'ravg_rshannon_{suffix}'].initial
-                    ])
         return results
 
