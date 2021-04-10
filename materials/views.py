@@ -1030,6 +1030,7 @@ def submit_data(request):
         # message = mark_safe(message +
         #                     f' <a href="{dataset_url}">View</a> the data set.')
     if form.cleaned_data['qresp_search_url']:
+        message = 'New data successfully added to the database.'
         messages.success(request, message)
         return redirect('/materials/import-data', kwargs={
             'qresp_search_url': form.cleaned_data['qresp_search_url'],
