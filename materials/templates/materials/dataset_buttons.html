@@ -4,3 +4,8 @@
 <a href="{% url 'materials:update_dataset' pk=0 %}" id="edit_{{ dataset.primary_property.pk }}" class="btn btn-success" target="_blank">
   Update
 </a>
+<button data-reverse-url=
+        "{% url 'materials:delete_dataset' compound_pk=dataset.compound.pk dataset_pk=dataset.pk view_name=request.resolver_match.url_name %}"
+        type="button" class="btn btn-danger delete-button">
+  Delete
+</button>

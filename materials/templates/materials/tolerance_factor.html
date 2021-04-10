@@ -4,13 +4,36 @@
 
 {% block body %}
 <div class="input group">
-	<button id="shannon-tf-button" class="btn btn-info">Shannon based TF</button>
-	<button id="experimental-tf-button" class="btn btn-info">Experimental TF</button>
-	<button id="averaged-tf-button" class="btn btn-info">Averaged TF</button>
+  <label for="compound">Choose a compound: </label>
+	<select id="compound">
+      <option value="0">All</option>
+	  {% for compound in compounds %}
+      <option value='{{ compound.1 }}'>{{ compound.0 }}</option>
+	  {% endfor %}
+	</select>
 </div>
-<canvas id="shannon_tf_chart" width="400" height="300" hidden='true'></canvas>
-<canvas id="experimental_tf_chart" width="400" height="300" hidden='true'></canvas>
-<canvas id="averaged_tf_chart" width="400" height="300" hidden='true'></canvas>
+<br>
+<div class="input group">
+  <button id="shannon-tf-button" class="btn btn-info">Shannon based TF</button>
+  <button id="experimental-tf-button" class="btn btn-info">Experimental TF</button>
+  <button id="averaged-tf-button" class="btn btn-info">Averaged TF</button>
+  <button id="compared-button" class="btn btn-purple">Compare</button>
+</div>
+<br>
+<div class="row">
+  <div class="col-md-4" id="shannon_tf_chart" hidden='true'>
+    <canvas id="shannon_tf_chart_1" width="400" height="300"></canvas>
+  </div>
+  <div class="col-md-4" id="experimental_tf_chart" hidden='true'>
+    <canvas id="experimental_tf_chart_1" width="400" height="300"></canvas>
+  </div>
+  <div class="col-md-4" id="averaged_tf_chart" hidden='true'>
+    <canvas id="averaged_tf_chart_1" width="400" height="300"></canvas>
+  </div>
+</div>
+
+
+
 {% endblock %}
 
 {% block script %}

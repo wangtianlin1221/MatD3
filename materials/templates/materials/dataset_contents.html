@@ -8,7 +8,7 @@ the "with ..." syntax to include certain parts.
 
 
 <!-- MAIN DATA -->
-<div class="card">
+<div class="card" id="general_card_{{ dataset.primary_property.pk }}" hidden="true">
   <div class="card-header">
     General
   </div>
@@ -16,45 +16,51 @@ the "with ..." syntax to include certain parts.
     <div id="id_general_{{ dataset.primary_property.pk }}"></div>
   </div>
 </div>
-<br>
 <!-- SYNTHESIS METHOD -->
-<div class="card">
-  <button class="btn text-left expand-hide-button"
-          data-toggle="collapse"
-          data-target="#synthesis-body-{{ dataset.primary_property.pk }}">
-    Synthesis method (click to expand)
-  </button>
-  <div class="collapse" id="synthesis-body-{{ dataset.primary_property.pk }}">
-    <div class="card-body"></div>
+<div id="synthesis-card-{{ dataset.primary_property.pk }}" hidden="true">
+  <br>
+  <div class="card">
+    <button class="btn text-left expand-hide-button"
+            data-toggle="collapse"
+            data-target="#synthesis-body-{{ dataset.primary_property.pk }}">
+      Synthesis method (click to expand)
+    </button>
+    <div class="collapse" id="synthesis-body-{{ dataset.primary_property.pk }}">
+      <div class="card-body"></div>
+    </div>
   </div>
 </div>
-<br>
 <!-- EXPERIMENTAL DETAILS -->
-<div class="card">
-  <button class="btn text-left expand-hide-button"
-          data-toggle="collapse"
-          data-target="#experimental-body-{{ dataset.primary_property.pk }}">
-    Experimental details (click to expand)
-  </button>
-  <div class="collapse" id="experimental-body-{{ dataset.primary_property.pk }}">
-    <div class="card-body"></div>
+<div id="experimental-card-{{ dataset.primary_property.pk }}" hidden="true">
+  <br>
+  <div class="card">
+    <button class="btn text-left expand-hide-button"
+            data-toggle="collapse"
+            data-target="#experimental-body-{{ dataset.primary_property.pk }}">
+      Experimental details (click to expand)
+    </button>
+    <div class="collapse" id="experimental-body-{{ dataset.primary_property.pk }}">
+      <div class="card-body"></div>
+    </div>
   </div>
 </div>
-<br>
 <!-- COMPUTATIONAL DETAILS -->
-<div class="card">
-  <button class="btn text-left expand-hide-button"
-          data-toggle="collapse"
-          data-target="#computational-body-{{ dataset.primary_property.pk }}">
-    Computational details (click to expand)
-  </button>
-  <div class="collapse" id="computational-body-{{ dataset.primary_property.pk }}">
-    <div class="card-body"></div>
+<div id="computational-card-{{ dataset.primary_property.pk }}" hidden="true">
+  <br>
+  <div class="card">
+    <button class="btn text-left expand-hide-button"
+            data-toggle="collapse"
+            data-target="#computational-body-{{ dataset.primary_property.pk }}">
+      Computational details (click to expand)
+    </button>
+    <div class="collapse" id="computational-body-{{ dataset.primary_property.pk }}">
+      <div class="card-body"></div>
+    </div>
   </div>
 </div>
 <br>
 <!-- DATA -->
-<div class="card">
+<div class="card" id="subsets_card_{{ dataset.primary_property.pk }}" hidden="true">
   <div class="card-header">
     Data
   </div>

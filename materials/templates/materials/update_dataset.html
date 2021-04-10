@@ -126,14 +126,14 @@
       </div>
 
       <!-- ADD NEW SPACE GROUP -->
-      <div id="new-space-group-card" class="card mt-3 new-entry-card new-entry-card2" hidden="true">
+      <div id="new-space_group-card" class="card mt-3 new-entry-card new-entry-card2" hidden="true">
         <div class="card-header">
           Add new space group
         </div>
         <div class="card-body">
           <div class="row">
             <div class="col-md-6">
-              <form id="space-group-form" method="post">
+              <form id="space_group-form" method="post">
                 {{ space_group_form.name.label_tag }}
                 {{ space_group_form.name.help_text|tooltip }}
                 <div class="input-group">
@@ -667,7 +667,6 @@
   <script src="{% static 'materials/javascript/selectize.js' %}"></script>
   <script>
    // Initial values for selectize elements
-   // let initial_reference = '{{ main_form.select_reference.value }}';
    let initial_primary_property = '{{ main_form.primary_property.value }}';
    let initial_space_group = '{{ main_form.space_group.value }}';
   </script>
@@ -684,14 +683,26 @@
   </script>
   <script src="{% static 'materials/javascript/update_dataset.js' %}"></script>
   <script>
-    // Prefill subset data when first loading update data page
+    // Update data: Prefill subset data when first loading update-dataset page
     {% for d_1 in data %}
-    {% for key, value in d_1.items %}
-    document.getElementById('id_{{ key }}').value = '{{ value|escapejs }}';
-    {% endfor %}
+      {% for key, value in d_1.items %}
+        {% if key == 'fixed_values' %}
+          {% for fixed in value %}
+            add_fixed_property(1, '{{ fixed.i_subset }}', '{{ fixed.counter }}', 
+              '{{ fixed.property|escapejs }}', '{{ fixed.unit|escapejs }}', 
+              '{{ fixed.sign|escapejs }}', '{{ fixed.value|escapejs }}');
+          {% endfor %}
+        {% else %}
+        document.getElementById('id_{{ key }}').value = '{{ value|escapejs }}';
+          {% if 'number_of_curves' in key %}
+          document.getElementById('id_{{ key }}').dispatchEvent(new Event('change'));
+          {% endif %}
+        {% endif %}
+      {% endfor %}
     {% endfor %}
   </script>
   <script>
+   // Submit data redirect: 
    // Prefill the data subsets from a previous instance of the form
    {% for i_dataset, i_subset, name, value in main_form.get_subset %}
    document.getElementById('id_{{ name }}').value = '{{ value|escapejs }}';
@@ -709,11 +720,6 @@
    {% for i_dataset, i_subset, counter, prop, unit, sign, value in main_form.get_fixed_properties %}
    add_fixed_property({{ i_dataset }}, {{ i_subset }}, {{ counter }}, '{{ prop|escapejs }}', 
                      '{{ unit|escapejs }}', '{{ sign|escapejs }}', '{{ value|escapejs }}');
-   {% endfor %}
-
-   // Prefill bond lengths from a previous instance of the form
-   {% for i_dataset, i_subset, counter, element_a, element_b, r_avg, r_shannon, global_average, ravg_rglobal, ravg_rshannon in main_form.get_bond_lengths %}
-   add_bond_length({{ i_dataset }}, {{ i_subset }}, {{ counter }}, '{{ element_a|escapejs }}', '{{ element_b|escapejs }}', '{{ r_avg|escapejs }}', '{{ r_shannon|escapejs }}', '{{ global_average|escapejs }}', '{{ ravg_rglobal|escapejs }}', '{{ ravg_rshannon|escapejs }}');
    {% endfor %}
   </script>
 {% endblock %}
