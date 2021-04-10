@@ -80,7 +80,7 @@ class Reference(models.Model):
         return text
 
     def getAuthorsAsString(self):
-        names = ', '.join([f'{x.first_name[0]}. {x.last_name}' for
+        names = ', '.join([f'{x.first_name[0] if x.first_name else ""}. {x.last_name}' for
                            x in self.authors.all()])
         if names:
             names += ','
@@ -215,7 +215,7 @@ class SynthesisMethod(Base):
 class ExperimentalDetails(Base):
     dataset = models.ForeignKey(
         Dataset, on_delete=models.CASCADE, related_name='experimental')
-    method = models.TextField()
+    method = models.TextField(blank=True)
     description = models.TextField(blank=True)
 
     class Meta:
@@ -244,7 +244,7 @@ class Comment(Base):
         ComputationalDetails, null=True, on_delete=models.CASCADE)
     experimental_details = models.OneToOneField(
         ExperimentalDetails, null=True, on_delete=models.CASCADE)
-    text = models.TextField()
+    text = models.TextField(blank=True)
 
     def __str__(self):
         return self.text
@@ -267,13 +267,13 @@ class Subset(Base):
     """
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE,
                                 related_name='subsets')
-    title = models.CharField(max_length=100)
-    input_data_file = models.FileField(upload_to=data_file_path, null=True)
+    title = models.CharField(blank=True, max_length=100)
+    input_data_file = models.FileField(upload_to=data_file_path, null=True, blank=True)
     reference = models.ForeignKey(
-        Reference, on_delete=models.PROTECT, related_name='subsets', null=True)
+        Reference, on_delete=models.PROTECT, related_name='subsets', null=True, blank=True)
 
     def __str__(self):
-        return f'ID: {self.pk} {self.title}'
+        return f'Subset: {self.pk} {self.title if self.title else ""}'
 
     def delete(self, *args, **kwargs):
         """Additionally remove all additional files uploaded by the user."""
@@ -308,7 +308,7 @@ class Subset(Base):
         units = [' ', ' ', ' ', '°', '°', '°']
         values = []
         for value in values_float:
-            values.append('%10g' % value)
+            values.append('%.5g' % value)
         return zip(symbols, values, units)
 
     def get_atomic_coordinates(self):
@@ -317,9 +317,9 @@ class Subset(Base):
         for obj in self.atomic_coordinates.all():
             coords.append({
                 'label': obj.label,
-                'coord_1': '%10g' % obj.coord_1,
-                'coord_2': '%10g' % obj.coord_2,
-                'coord_3': '%10g' % obj.coord_3,
+                'coord_1': '%.5g' % obj.coord_1,
+                'coord_2': '%.5g' % obj.coord_2,
+                'coord_3': '%.5g' % obj.coord_3,
                 'element': obj.element,
             })
         return coords
@@ -344,8 +344,8 @@ class Subset(Base):
             tfs.append({
                 'data source': ToleranceFactor.DATA_SOURCES[obj.data_source][1],
                 'space group': obj.space_group.name,
-                't_I': obj.t_I,
-                't_IV/V': obj.t_IV_V,
+                't_I': '%.2f' % obj.t_I if obj.t_I else "",
+                't_IV/V': '%.2f' % obj.t_IV_V if obj.t_IV_V else "",
                 })
         return tfs
 
@@ -398,9 +398,9 @@ class Chart(Base):
     """
     subset = models.ForeignKey(
         Subset, on_delete=models.CASCADE, related_name='curves')
-    x_title = models.CharField(max_length=100)
+    x_title = models.CharField(max_length=100, blank=True)
     x_unit = models.CharField(max_length=20, blank=True)
-    y_title = models.CharField(max_length=100)
+    y_title = models.CharField(max_length=100, blank=True)
     y_unit = models.CharField(max_length=20, blank=True)
     legend = models.CharField(max_length=100, blank=True)
     curve_counter = models.PositiveSmallIntegerField(default=0)
@@ -473,7 +473,10 @@ class ShannonIonicRadii(Base):
     charge = models.CharField(blank=True, max_length=20)
     coordination = models.CharField(blank=True, max_length=20)
     spin_state = models.PositiveSmallIntegerField(default=NO_SPIN, choices=SPIN_STATES)
-    ionic_radius = models.FloatField(null=True, blank=True)   
+    ionic_radius = models.FloatField(null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.compound} - {self.subset} - {self.ELEMENT_LABELS[self.element_label][1]}'
 
 
 class ShannonRadiiTable(models.Model):
@@ -524,6 +527,9 @@ class BondLength(Base):
     shannon_r = models.FloatField(null=True, blank=True)
     counter = models.PositiveSmallIntegerField(default=0)
 
+    def __str__(self):
+        return f'{self.compound} - {self.subset} - {self.R_LABELS[self.r_label][1]}'
+
 
 class ToleranceFactor(Base):
     # Define data sources
@@ -544,3 +550,6 @@ class ToleranceFactor(Base):
         SpaceGroup, on_delete=models.CASCADE, related_name='tolerance_factors')
     t_I = models.FloatField(null=True, blank=True)
     t_IV_V = models.FloatField(null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.compound} - {self.subset} - {self.DATA_SOURCES[self.data_source][1]}'
