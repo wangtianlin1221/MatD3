@@ -6,6 +6,7 @@ from django.contrib import admin
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.safestring import mark_safe
+from import_export.admin import ImportExportModelAdmin
 
 from . import models
 from mainproject.settings import MATD3_NAME
@@ -14,7 +15,7 @@ admin.site.site_header = mark_safe(f'{MATD3_NAME} database')
 
 
 class BaseMixin:
-    readonly_fields = ('id', 'created_by', 'created', 'updated_by', 'updated')
+    readonly_fields = ('created_by', 'created', 'updated_by', 'updated')
 
     def check_perm(self, user, obj=None):
         return user.is_superuser or obj and (
@@ -28,6 +29,18 @@ class BaseMixin:
 
 
 class BaseAdmin(BaseMixin, nested_admin.NestedModelAdmin):
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        self.qs = qs
+        return qs
+
+    def row_id(self, obj):
+        return len(self.qs) - list(self.qs).index(obj)
+
+    def get_list_display(self, request):
+        ld = list(super().get_list_display(request))
+        return ['row_id'] + ld
+
     def save_model(self, request, obj, form, change):
         if not hasattr(obj, 'created_by'):
             obj.created_by = request.user
@@ -48,157 +61,146 @@ class BaseAdmin(BaseMixin, nested_admin.NestedModelAdmin):
         formset.save_m2m()
 
 
-admin.site.register(models.Compound)
-admin.site.register(models.Reference)
-admin.site.register(models.Author)
+@admin.register(models.Compound)
+class CompoundAdmin(BaseAdmin):
+    pass
 
 
+@admin.register(models.Property)
 class PropertyAdmin(BaseAdmin):
-    list_display = ('id', 'name', 'created_by', 'updated_by', 'updated')
-    fieldsets = (
-        ('', {
-            'fields': ('name',),
-        }),
-        ('Meta', {'fields': BaseAdmin.readonly_fields}),
-    )
+    pass
 
 
-admin.site.register(models.Property, PropertyAdmin)
-
-
+@admin.register(models.Unit)
 class UnitAdmin(BaseAdmin):
-    list_display = ('id', 'label', 'created_by', 'updated_by', 'updated')
-    fieldsets = (
-        ('', {
-            'fields': ('label',),
-        }),
-        ('Meta', {'fields': BaseAdmin.readonly_fields}),
-    )
+    pass
 
 
-admin.site.register(models.Unit, UnitAdmin)
+# Include authors in reference admin site
+class AuthorInline(nested_admin.NestedTabularInline):
+    model = models.Author.references.through
+    extra = 0
 
 
+@admin.register(models.Reference)
+class ReferenceAdmin(BaseAdmin):
+    readonly_fields = ()
+    inlines = [AuthorInline,]
+
+
+@admin.register(models.Author)
+class AuthorAdmin(BaseAdmin):
+    readonly_fields = ()
+    filter_horizontal = ('references',)
+
+
+@admin.register(models.Dataset)
+class DatasetAdmin(BaseAdmin):
+    list_display = ('compound', 'primary_property', 'created_by', 'updated_by', 'updated')
+    list_filter = ('updated',)
+
+
+# Include comments in synthesis, experimental, computational admin sites
 class CommentInline(BaseMixin, nested_admin.NestedStackedInline):
     model = models.Comment
     verbose_name_plural = ''
     fields = ['text']
 
-
+@admin.register(models.SynthesisMethod)
 class SynthesisAdmin(BaseAdmin):
-    list_display = ('id', 'created_by', 'updated_by', 'updated')
-    fields = [f.name for f in models.SynthesisMethod._meta.local_fields]
-    inlines = [CommentInline]
+    list_display = ['dataset', 'created_by', 'created']
+    inlines = [CommentInline,]
 
-
-admin.site.register(models.SynthesisMethod, SynthesisAdmin)
-
-
+@admin.register(models.ExperimentalDetails)
 class ExperimentalAdmin(BaseAdmin):
-    list_display = ('id', 'created_by', 'updated_by', 'updated')
-    fields = [f.name for f in models.ExperimentalDetails._meta.local_fields]
-    inlines = [CommentInline]
+    list_display = ['dataset', 'created_by', 'created']
+    inlines = [CommentInline,]
 
-
-admin.site.register(models.ExperimentalDetails, ExperimentalAdmin)
-
-
+@admin.register(models.ComputationalDetails)
 class ComputationalAdmin(BaseAdmin):
-    list_display = ('id', 'created_by', 'updated_by', 'updated')
-    fields = [f.name for f in models.ComputationalDetails._meta.local_fields]
-    inlines = [CommentInline]
+    list_display = ['dataset', 'created_by', 'created']
+    inlines = [CommentInline,]
 
 
-admin.site.register(models.ComputationalDetails, ComputationalAdmin)
-
-
-# class NumericalValueInline(BaseMixin, nested_admin.NestedTabularInline):
-#     model = models.NumericalValue
-#     extra = 0
-#     verbose_name_plural = ''
-#     fields = ['qualifier', 'value_type', 'value']
-#     inlines = [ErrorInline, UpperBoundInline]
-
-
-# class DatapointInline(BaseMixin, nested_admin.NestedStackedInline):
-#     model = models.Datapoint
-#     extra = 0
-#     verbose_name_plural = ''
-#     fields = ['id']
-#     inlines = [SymbolInline, NumericalValueInline]
-
-
-# class NumericalValueFixedForm(forms.ModelForm):
-#     """Needed to make the error field non-mandatory."""
-#     error = forms.FloatField(required=False)
-#     upper_bound = forms.FloatField(required=False)
-
-
-# class NumericalValueFixedInline(nested_admin.NestedTabularInline):
-#     model = models.NumericalValueFixed
-#     form = NumericalValueFixedForm
-#     extra = 0
-#     verbose_name_plural = 'Fixed parameters'
-#     fields = ('physical_property', 'value_type', 'value', 'error',
-#               'upper_bound', 'unit')
-
-
-class SynthesisInline(BaseMixin, nested_admin.NestedStackedInline):
-    model = models.SynthesisMethod
-    fields = SynthesisAdmin.fields
-    inlines = [CommentInline]
+# Include data in subset admin site
+class FilesInline(BaseMixin, nested_admin.NestedStackedInline):
+    model = models.AdditionalFile
     extra = 0
 
-
-class ExperimentalInline(BaseMixin, nested_admin.NestedStackedInline):
-    model = models.ExperimentalDetails
-    fields = ExperimentalAdmin.fields
-    inlines = [CommentInline]
+# Normal properties
+class DatapointInline(BaseMixin, nested_admin.NestedStackedInline):
+    model = models.Datapoint
+    fields = ['x_value', 'y_value']
     extra = 0
 
+class ChartInline(BaseMixin, nested_admin.NestedStackedInline):
+    model = models.Chart
+    fields = ['x_title', 'x_unit', 'y_title', 'y_unit', 'legend']
+    extra = 0
+    inlines = [DatapointInline]
 
-class ComputationalInline(BaseMixin, nested_admin.NestedStackedInline):
-    model = models.ComputationalDetails
-    fields = ComputationalAdmin.fields
-    inlines = [CommentInline]
+class FixedInline(BaseMixin, nested_admin.NestedStackedInline):
+    model = models.FixedPropertyValue
+    exclude = ['created_by', 'created', 'updated_by', 'updated']
     extra = 0
 
-
+# Atomic structure
 class LatticeConstInline(BaseMixin, nested_admin.NestedStackedInline):
     model = models.LatticeConstant
-    fields = [f.name for f in models.LatticeConstant._meta.local_fields]
+    exclude = ['created_by', 'created', 'updated_by', 'updated']
     extra = 0
-
 
 class AtomicCoordInline(BaseMixin, nested_admin.NestedStackedInline):
     model = models.AtomicCoordinate
-    fields = [f.name for f in models.AtomicCoordinate._meta.local_fields]
+    exclude = ['created_by', 'created', 'updated_by', 'updated']
     extra = 0 
 
-
-class FilesInline(BaseMixin, nested_admin.NestedStackedInline):
-    model = models.AdditionalFile
-    fields = [f.name for f in models.AdditionalFile._meta.local_fields]
+# Tolerance factor
+class ShannonIonicRadiiInline(BaseMixin, nested_admin.NestedStackedInline):
+    model = models.ShannonIonicRadii
+    exclude = ['compound', 'created_by', 'created', 'updated_by', 'updated']
     extra = 0
 
-class SubsetInline(BaseMixin, nested_admin.NestedStackedInline):
-    model = models.Subset
+class BondLengthInline(BaseMixin, nested_admin.NestedTabularInline):
+    model = models.BondLength
+    fields = ['r_label', 'bond_id', 'experimental_r', 'averaged_r', 'shannon_r', 'counter']
     extra = 0
-    fields = [f.name for f in models.Subset._meta.local_fields]
-    inlines = [LatticeConstInline, AtomicCoordInline, FilesInline]
 
-class DatasetAdmin(BaseAdmin):
-    list_display = ('id', 'primary_property', 'created_by',
-                    'updated_by', 'updated')
-    list_filter = ('updated',)
-    ordering = ('-updated',)
-    fields = ([f.name for f in models.Dataset._meta.local_fields])
-    inlines = (SynthesisInline, ExperimentalInline, ComputationalInline,
-               SubsetInline)
-    # filter_horizontal = ['linked_to']
+class ToleranceFactorInline(BaseMixin, nested_admin.NestedTabularInline):
+    model = models.ToleranceFactor
+    exclude = ['compound', 'created_by', 'created', 'updated_by', 'updated']
+    extra = 0
 
-    # def view_on_site(self, obj):
-    #     return reverse('materials:dataset', kwargs={'pk': obj.pk})
+@admin.register(models.Subset)
+class SubsetAdmin(BaseAdmin):
+    list_display = ('dataset', 'title', 'created_by', 'updated_by', 'updated')
+    inlines = [FilesInline, ChartInline, FixedInline, LatticeConstInline, AtomicCoordInline,
+            ShannonIonicRadiiInline, BondLengthInline, ToleranceFactorInline]
 
 
-admin.site.register(models.Dataset, DatasetAdmin)
+@admin.register(models.ShannonRadiiTable)
+class ShannonRadiiTableAdmin(ImportExportModelAdmin):
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        self.qs = qs
+        return qs
+
+    def row_id(self, obj):
+        return len(self.qs) - list(self.qs).index(obj)
+        
+    list_display = ('row_id', 'element', 'charge', 'coordination', 'spin_state', 'ionic_radius')
+
+
+@admin.register(models.ShannonIonicRadii)
+class ShannonIonicRadiiAdmin(BaseAdmin):
+    pass
+
+    
+@admin.register(models.BondLength)
+class BondLengthAdmin(BaseAdmin):
+    pass
+
+
+@admin.register(models.ToleranceFactor)
+class ToleranceFactor(BaseAdmin):
+    pass
